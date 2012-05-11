@@ -424,6 +424,16 @@ class Lambra::Parser
       attr_reader :column
       attr_reader :elements
     end
+    class Set < Node
+      def initialize(line, column, elements)
+        @line = line
+        @column = column
+        @elements = elements
+      end
+      attr_reader :line
+      attr_reader :column
+      attr_reader :elements
+    end
     class String < Node
       def initialize(line, column, value)
         @line = line
@@ -483,6 +493,9 @@ class Lambra::Parser
   end
   def seq(line, column, elements)
     ::Lambra::AST::Sequence.new(line, column, elements)
+  end
+  def set(line, column, elements)
+    ::Lambra::AST::Set.new(line, column, elements)
   end
   def string_value(line, column, value)
     ::Lambra::AST::String.new(line, column, value)
@@ -943,7 +956,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # literal = (float | integer | hex | true | false | nil | string | vector | map | symbol | keyword)
+  # literal = (float | integer | hex | true | false | nil | string | vector | set | map | symbol | keyword)
   def _literal
 
     _save = self.pos
@@ -970,6 +983,9 @@ class Lambra::Parser
       break if _tmp
       self.pos = _save
       _tmp = apply(:_vector)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_set)
       break if _tmp
       self.pos = _save
       _tmp = apply(:_map)
@@ -1113,6 +1129,70 @@ class Lambra::Parser
     end # end choice
 
     set_failed_rule :_vector unless _tmp
+    return _tmp
+  end
+
+  # set = ("#{" expr_list:e "}" {set(current_line, current_column, e)} | "#{" "}" {set(current_line, current_column, [])})
+  def _set
+
+    _save = self.pos
+    while true # choice
+
+      _save1 = self.pos
+      while true # sequence
+        _tmp = match_string("\#{")
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        _tmp = apply(:_expr_list)
+        e = @result
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        _tmp = match_string("}")
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        @result = begin; set(current_line, current_column, e); end
+        _tmp = true
+        unless _tmp
+          self.pos = _save1
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+
+      _save2 = self.pos
+      while true # sequence
+        _tmp = match_string("\#{")
+        unless _tmp
+          self.pos = _save2
+          break
+        end
+        _tmp = match_string("}")
+        unless _tmp
+          self.pos = _save2
+          break
+        end
+        @result = begin; set(current_line, current_column, []); end
+        _tmp = true
+        unless _tmp
+          self.pos = _save2
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+      break
+    end # end choice
+
+    set_failed_rule :_set unless _tmp
     return _tmp
   end
 
@@ -1444,9 +1524,10 @@ class Lambra::Parser
   Rules[:_symbol] = rule_info("symbol", "word:w {symbol(current_line, current_column, w.to_sym)}")
   Rules[:_keyword] = rule_info("keyword", "\":\" word:w {keyword(current_line, current_column, w.to_sym)}")
   Rules[:_string] = rule_info("string", "\"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(current_line, current_column, text)}")
-  Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | vector | map | symbol | keyword)")
+  Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | vector | set | map | symbol | keyword)")
   Rules[:_list] = rule_info("list", "(\"(\" expr_list:e \")\" {list(current_line, current_column, e)} | \"(\" \")\" {list(current_line, current_column, [])})")
   Rules[:_vector] = rule_info("vector", "(\"[\" expr_list:e \"]\" {vector(current_line, current_column, e)} | \"[\" \"]\" {vector(current_line, current_column, [])})")
+  Rules[:_set] = rule_info("set", "(\"\#{\" expr_list:e \"}\" {set(current_line, current_column, e)} | \"\#{\" \"}\" {set(current_line, current_column, [])})")
   Rules[:_map] = rule_info("map", "(\"{\" expr_list:e \"}\" {map(current_line, current_column, Hash[*e])} | \"{\" \"}\" {map(current_line, current_column, {})})")
   Rules[:_expr] = rule_info("expr", "(list | literal)")
   Rules[:_many_expr] = rule_info("many_expr", "(comment:e many_expr:m { [e] + m } | expr:e many_expr:m { [e] + m } | expr:e { [e] })")

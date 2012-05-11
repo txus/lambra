@@ -127,3 +127,13 @@ describe "The Map node" do
     parse { [:map, {[:keyword, :a] => [:number, 1], [:keyword, :b] => [:number, 2]}] }
   end
 end
+
+describe "The Set node" do
+  relates '#{}' do
+    parse { [:set] }
+  end
+
+  relates '#{:a :b :c}' do
+    parse { [:set, [:keyword, :a], [:keyword, :b], [:keyword, :c]] }
+  end
+end
