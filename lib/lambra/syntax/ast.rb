@@ -1,6 +1,8 @@
 module Lambra
   module AST
     class Node
+      attr_reader :line, :column
+
       def sexp_name
         self.class.name.split('::').last.downcase.to_sym
       end

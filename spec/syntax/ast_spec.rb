@@ -49,6 +49,10 @@ describe "The Form node" do
     parse { [:form] }
   end
 
+  relates '(1 ,   2 3)' do
+    parse { [:form, [:number, 1], [:number, 2], [:number, 3]] }
+  end
+
   relates '(hello world 43 "hey")' do
     parse { 
       [:form,

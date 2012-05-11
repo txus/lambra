@@ -359,71 +359,103 @@ class Lambra::Parser
   module ::Lambra::AST
     class Node; end
     class False < Node
-      def initialize()
+      def initialize(line, column)
+        @line = line
+        @column = column
       end
+      attr_reader :line
+      attr_reader :column
     end
     class Form < Node
-      def initialize(elements)
+      def initialize(line, column, elements)
+        @line = line
+        @column = column
         @elements = elements
       end
+      attr_reader :line
+      attr_reader :column
       attr_reader :elements
     end
     class Nil < Node
-      def initialize()
+      def initialize(line, column)
+        @line = line
+        @column = column
       end
+      attr_reader :line
+      attr_reader :column
     end
     class Number < Node
-      def initialize(value)
+      def initialize(line, column, value)
+        @line = line
+        @column = column
         @value = value
       end
+      attr_reader :line
+      attr_reader :column
       attr_reader :value
     end
     class Sequence < Node
-      def initialize(elements)
+      def initialize(line, column, elements)
+        @line = line
+        @column = column
         @elements = elements
       end
+      attr_reader :line
+      attr_reader :column
       attr_reader :elements
     end
     class String < Node
-      def initialize(value)
+      def initialize(line, column, value)
+        @line = line
+        @column = column
         @value = value
       end
+      attr_reader :line
+      attr_reader :column
       attr_reader :value
     end
     class Symbol < Node
-      def initialize(name)
+      def initialize(line, column, name)
+        @line = line
+        @column = column
         @name = name
       end
+      attr_reader :line
+      attr_reader :column
       attr_reader :name
     end
     class True < Node
-      def initialize()
+      def initialize(line, column)
+        @line = line
+        @column = column
       end
+      attr_reader :line
+      attr_reader :column
     end
   end
-  def false_value()
-    ::Lambra::AST::False.new()
+  def false_value(line, column)
+    ::Lambra::AST::False.new(line, column)
   end
-  def form(elements)
-    ::Lambra::AST::Form.new(elements)
+  def form(line, column, elements)
+    ::Lambra::AST::Form.new(line, column, elements)
   end
-  def nil_value()
-    ::Lambra::AST::Nil.new()
+  def nil_value(line, column)
+    ::Lambra::AST::Nil.new(line, column)
   end
-  def number(value)
-    ::Lambra::AST::Number.new(value)
+  def number(line, column, value)
+    ::Lambra::AST::Number.new(line, column, value)
   end
-  def seq(elements)
-    ::Lambra::AST::Sequence.new(elements)
+  def seq(line, column, elements)
+    ::Lambra::AST::Sequence.new(line, column, elements)
   end
-  def string_value(value)
-    ::Lambra::AST::String.new(value)
+  def string_value(line, column, value)
+    ::Lambra::AST::String.new(line, column, value)
   end
-  def symbol(name)
-    ::Lambra::AST::Symbol.new(name)
+  def symbol(line, column, name)
+    ::Lambra::AST::Symbol.new(line, column, name)
   end
-  def true_value()
-    ::Lambra::AST::True.new()
+  def true_value(line, column)
+    ::Lambra::AST::True.new(line, column)
   end
   def setup_foreign_grammar; end
 
@@ -537,13 +569,16 @@ class Lambra::Parser
     return _tmp
   end
 
-  # br-sp = (space | nl)*
+  # br-sp = (space | "," | nl)*
   def _br_hyphen_sp
     while true
 
       _save1 = self.pos
       while true # choice
         _tmp = apply(:_space)
+        break if _tmp
+        self.pos = _save1
+        _tmp = match_string(",")
         break if _tmp
         self.pos = _save1
         _tmp = apply(:_nl)
@@ -585,7 +620,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # integer = number:n {number(n.to_i)}
+  # integer = number:n {number(current_line, current_column, n.to_i)}
   def _integer
 
     _save = self.pos
@@ -596,7 +631,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin; number(n.to_i); end
+      @result = begin; number(current_line, current_column, n.to_i); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -608,7 +643,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # float = number:w "." number:f {number("#{w}.#{f}".to_f)}
+  # float = number:w "." number:f {number(current_line, current_column, "#{w}.#{f}".to_f)}
   def _float
 
     _save = self.pos
@@ -630,7 +665,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin; number("#{w}.#{f}".to_f); end
+      @result = begin; number(current_line, current_column, "#{w}.#{f}".to_f); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -649,7 +684,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # hex = "0x" < hexdigits+ > {number(text.to_i(16))}
+  # hex = "0x" < hexdigits+ > {number(current_line, current_column, text.to_i(16))}
   def _hex
 
     _save = self.pos
@@ -678,7 +713,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin; number(text.to_i(16)); end
+      @result = begin; number(current_line, current_column, text.to_i(16)); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -690,7 +725,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # true = "true" {true_value()}
+  # true = "true" {true_value(current_line, current_column)}
   def _true
 
     _save = self.pos
@@ -700,7 +735,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin; true_value(); end
+      @result = begin; true_value(current_line, current_column); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -712,7 +747,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # false = "false" {false_value()}
+  # false = "false" {false_value(current_line, current_column)}
   def _false
 
     _save = self.pos
@@ -722,7 +757,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin; false_value(); end
+      @result = begin; false_value(current_line, current_column); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -734,7 +769,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # nil = "nil" {nil_value()}
+  # nil = "nil" {nil_value(current_line, current_column)}
   def _nil
 
     _save = self.pos
@@ -744,7 +779,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin; nil_value(); end
+      @result = begin; nil_value(current_line, current_column); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -782,7 +817,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # symbol = word:w {symbol(w.to_sym)}
+  # symbol = word:w {symbol(current_line, current_column, w.to_sym)}
   def _symbol
 
     _save = self.pos
@@ -793,7 +828,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin; symbol(w.to_sym); end
+      @result = begin; symbol(current_line, current_column, w.to_sym); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -805,7 +840,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # string = "\"" < /[^\\"]*/ > "\"" {string_value(text)}
+  # string = "\"" < /[^\\"]*/ > "\"" {string_value(current_line, current_column, text)}
   def _string
 
     _save = self.pos
@@ -829,7 +864,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin; string_value(text); end
+      @result = begin; string_value(current_line, current_column, text); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -877,7 +912,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # form = ("(" expr_list:e ")" {form(e)} | "(" ")" {form([])})
+  # form = ("(" expr_list:e ")" {form(current_line, current_column, e)} | "(" ")" {form(current_line, current_column, [])})
   def _form
 
     _save = self.pos
@@ -901,7 +936,7 @@ class Lambra::Parser
           self.pos = _save1
           break
         end
-        @result = begin; form(e); end
+        @result = begin; form(current_line, current_column, e); end
         _tmp = true
         unless _tmp
           self.pos = _save1
@@ -924,7 +959,7 @@ class Lambra::Parser
           self.pos = _save2
           break
         end
-        @result = begin; form([]); end
+        @result = begin; form(current_line, current_column, []); end
         _tmp = true
         unless _tmp
           self.pos = _save2
@@ -941,33 +976,19 @@ class Lambra::Parser
     return _tmp
   end
 
-  # expr = position (form | literal)
+  # expr = (form | literal)
   def _expr
 
     _save = self.pos
-    while true # sequence
-      _tmp = apply(:_position)
-      unless _tmp
-        self.pos = _save
-        break
-      end
-
-      _save1 = self.pos
-      while true # choice
-        _tmp = apply(:_form)
-        break if _tmp
-        self.pos = _save1
-        _tmp = apply(:_literal)
-        break if _tmp
-        self.pos = _save1
-        break
-      end # end choice
-
-      unless _tmp
-        self.pos = _save
-      end
+    while true # choice
+      _tmp = apply(:_form)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_literal)
+      break if _tmp
+      self.pos = _save
       break
-    end # end sequence
+    end # end choice
 
     set_failed_rule :_expr unless _tmp
     return _tmp
@@ -1054,7 +1075,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # sequence = many_expr:e { e.size > 1 ? seq(e) : e.first }
+  # sequence = many_expr:e { e.size > 1 ? seq(current_line, current_column, e) : e.first }
   def _sequence
 
     _save = self.pos
@@ -1065,7 +1086,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin;  e.size > 1 ? seq(e) : e.first ; end
+      @result = begin;  e.size > 1 ? seq(current_line, current_column, e) : e.first ; end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -1199,51 +1220,6 @@ class Lambra::Parser
     return _tmp
   end
 
-  # line = { current_line }
-  def _line
-    @result = begin;  current_line ; end
-    _tmp = true
-    set_failed_rule :_line unless _tmp
-    return _tmp
-  end
-
-  # column = { current_column }
-  def _column
-    @result = begin;  current_column ; end
-    _tmp = true
-    set_failed_rule :_column unless _tmp
-    return _tmp
-  end
-
-  # position = line:l column:c { position(l, c) }
-  def _position
-
-    _save = self.pos
-    while true # sequence
-      _tmp = apply(:_line)
-      l = @result
-      unless _tmp
-        self.pos = _save
-        break
-      end
-      _tmp = apply(:_column)
-      c = @result
-      unless _tmp
-        self.pos = _save
-        break
-      end
-      @result = begin;  position(l, c) ; end
-      _tmp = true
-      unless _tmp
-        self.pos = _save
-      end
-      break
-    end # end sequence
-
-    set_failed_rule :_position unless _tmp
-    return _tmp
-  end
-
   Rules = {}
   Rules[:_eof] = rule_info("eof", "!.")
   Rules[:_space] = rule_info("space", "(\" \" | \"\\t\")")
@@ -1251,28 +1227,25 @@ class Lambra::Parser
   Rules[:_sp] = rule_info("sp", "space+")
   Rules[:__hyphen_] = rule_info("-", "space*")
   Rules[:_comment] = rule_info("comment", "\";\" (!nl .)* nl")
-  Rules[:_br_hyphen_sp] = rule_info("br-sp", "(space | nl)*")
+  Rules[:_br_hyphen_sp] = rule_info("br-sp", "(space | \",\" | nl)*")
   Rules[:_number] = rule_info("number", "< /[1-9][0-9]*/ > { text }")
-  Rules[:_integer] = rule_info("integer", "number:n {number(n.to_i)}")
-  Rules[:_float] = rule_info("float", "number:w \".\" number:f {number(\"\#{w}.\#{f}\".to_f)}")
+  Rules[:_integer] = rule_info("integer", "number:n {number(current_line, current_column, n.to_i)}")
+  Rules[:_float] = rule_info("float", "number:w \".\" number:f {number(current_line, current_column, \"\#{w}.\#{f}\".to_f)}")
   Rules[:_hexdigits] = rule_info("hexdigits", "/[0-9A-Fa-f]/")
-  Rules[:_hex] = rule_info("hex", "\"0x\" < hexdigits+ > {number(text.to_i(16))}")
-  Rules[:_true] = rule_info("true", "\"true\" {true_value()}")
-  Rules[:_false] = rule_info("false", "\"false\" {false_value()}")
-  Rules[:_nil] = rule_info("nil", "\"nil\" {nil_value()}")
+  Rules[:_hex] = rule_info("hex", "\"0x\" < hexdigits+ > {number(current_line, current_column, text.to_i(16))}")
+  Rules[:_true] = rule_info("true", "\"true\" {true_value(current_line, current_column)}")
+  Rules[:_false] = rule_info("false", "\"false\" {false_value(current_line, current_column)}")
+  Rules[:_nil] = rule_info("nil", "\"nil\" {nil_value(current_line, current_column)}")
   Rules[:_word] = rule_info("word", "< /[a-zA-Z_][a-zA-Z0-9_]*/ > { text }")
-  Rules[:_symbol] = rule_info("symbol", "word:w {symbol(w.to_sym)}")
-  Rules[:_string] = rule_info("string", "\"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(text)}")
+  Rules[:_symbol] = rule_info("symbol", "word:w {symbol(current_line, current_column, w.to_sym)}")
+  Rules[:_string] = rule_info("string", "\"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(current_line, current_column, text)}")
   Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | symbol)")
-  Rules[:_form] = rule_info("form", "(\"(\" expr_list:e \")\" {form(e)} | \"(\" \")\" {form([])})")
-  Rules[:_expr] = rule_info("expr", "position (form | literal)")
+  Rules[:_form] = rule_info("form", "(\"(\" expr_list:e \")\" {form(current_line, current_column, e)} | \"(\" \")\" {form(current_line, current_column, [])})")
+  Rules[:_expr] = rule_info("expr", "(form | literal)")
   Rules[:_many_expr] = rule_info("many_expr", "(comment:e many_expr:m { [e] + m } | expr:e many_expr:m { [e] + m } | expr:e { [e] })")
-  Rules[:_sequence] = rule_info("sequence", "many_expr:e { e.size > 1 ? seq(e) : e.first }")
+  Rules[:_sequence] = rule_info("sequence", "many_expr:e { e.size > 1 ? seq(current_line, current_column, e) : e.first }")
   Rules[:_expr_list_b] = rule_info("expr_list_b", "(expr:e br-sp expr_list_b:l { [e] + l } | expr:e { [e] })")
   Rules[:_expr_list] = rule_info("expr_list", "br-sp expr_list_b:b br-sp { b }")
   Rules[:_root] = rule_info("root", "sequence:e eof { @ast = e }")
-  Rules[:_line] = rule_info("line", "{ current_line }")
-  Rules[:_column] = rule_info("column", "{ current_column }")
-  Rules[:_position] = rule_info("position", "line:l column:c { position(l, c) }")
   # :startdoc:
 end
