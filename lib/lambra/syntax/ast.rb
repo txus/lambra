@@ -36,5 +36,12 @@ module Lambra
           *@elements.map(&:to_sexp)]
       end
     end
+
+    class Vector < Node
+      def to_sexp
+        [sexp_name, 
+          *@elements.map(&:to_sexp)]
+      end
+    end
   end
 end

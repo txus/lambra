@@ -74,3 +74,34 @@ describe "The Form node" do
     }
   end
 end
+
+describe "The Vector node" do
+  relates '[]' do
+    parse { [:vector] }
+  end
+
+  relates '[1 ,   2 3]' do
+    parse { [:vector, [:number, 1], [:number, 2], [:number, 3]] }
+  end
+
+  relates '[hello world 43 "hey"]' do
+    parse { 
+      [:vector,
+        [:symbol, :hello],
+        [:symbol, :world],
+        [:number, 43.0],
+        [:string, "hey"]]
+    }
+  end
+
+  relates "[hello \n\t (world 43) \"hey\"]" do
+    parse { 
+      [:vector,
+        [:symbol, :hello],
+        [:form,
+          [:symbol, :world],
+          [:number, 43.0]],
+        [:string, "hey"]]
+    }
+  end
+end
