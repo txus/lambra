@@ -117,3 +117,13 @@ describe "The Vector node" do
     }
   end
 end
+
+describe "The Map node" do
+  relates '{}' do
+    parse { [:map] }
+  end
+
+  relates '{:a 1 :b 2}' do
+    parse { [:map, {[:keyword, :a] => [:number, 1], [:keyword, :b] => [:number, 2]}] }
+  end
+end

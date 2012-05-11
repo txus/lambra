@@ -12,6 +12,7 @@
 %% seq          = ast Sequence(line, column, elements)
 %% list         = ast List(line, column, elements)
 %% vector       = ast Vector(line, column, elements)
+%% map          = ast Map(line, column, elements)
 
 eof = !.
 
@@ -50,6 +51,7 @@ literal = float
         | nil
         | string
         | vector
+        | map
         | symbol
         | keyword
 
@@ -58,6 +60,9 @@ list = "(" expr_list:e ")" ~list(current_line, current_column, e)
 
 vector = "[" expr_list:e "]" ~vector(current_line, current_column, e)
      | "[" "]" ~vector(current_line, current_column, [])
+
+map = "{" expr_list:e "}" ~map(current_line, current_column, Hash[*e])
+     | "{" "}" ~map(current_line, current_column, {})
 
 expr = list
      | literal

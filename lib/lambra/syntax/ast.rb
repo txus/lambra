@@ -43,6 +43,19 @@ module Lambra
       end
     end
 
+    class Map < Node
+      def to_sexp
+        return super if @elements.empty?
+
+        keys   = @elements.keys.map(&:to_sexp)
+        values = @elements.values.map(&:to_sexp)
+
+        elements = Hash[keys.zip(values)]
+
+        [sexp_name, elements]
+      end
+    end
+
     class Vector < Node
       def to_sexp
         [sexp_name, 
