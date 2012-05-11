@@ -30,6 +30,12 @@ module Lambra
       end
     end
 
+    class Keyword < Node
+      def to_sexp
+        [sexp_name, @name]
+      end
+    end
+
     class Form < Node
       def to_sexp
         [sexp_name, 

@@ -376,6 +376,16 @@ class Lambra::Parser
       attr_reader :column
       attr_reader :elements
     end
+    class Keyword < Node
+      def initialize(line, column, name)
+        @line = line
+        @column = column
+        @name = name
+      end
+      attr_reader :line
+      attr_reader :column
+      attr_reader :name
+    end
     class Nil < Node
       def initialize(line, column)
         @line = line
@@ -448,6 +458,9 @@ class Lambra::Parser
   end
   def form(line, column, elements)
     ::Lambra::AST::Form.new(line, column, elements)
+  end
+  def keyword(line, column, name)
+    ::Lambra::AST::Keyword.new(line, column, name)
   end
   def nil_value(line, column)
     ::Lambra::AST::Nil.new(line, column)
@@ -853,6 +866,34 @@ class Lambra::Parser
     return _tmp
   end
 
+  # keyword = ":" word:w {keyword(current_line, current_column, w.to_sym)}
+  def _keyword
+
+    _save = self.pos
+    while true # sequence
+      _tmp = match_string(":")
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      _tmp = apply(:_word)
+      w = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin; keyword(current_line, current_column, w.to_sym); end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_keyword unless _tmp
+    return _tmp
+  end
+
   # string = "\"" < /[^\\"]*/ > "\"" {string_value(current_line, current_column, text)}
   def _string
 
@@ -889,7 +930,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # literal = (float | integer | hex | true | false | nil | string | vector | symbol)
+  # literal = (float | integer | hex | true | false | nil | string | vector | symbol | keyword)
   def _literal
 
     _save = self.pos
@@ -919,6 +960,9 @@ class Lambra::Parser
       break if _tmp
       self.pos = _save
       _tmp = apply(:_symbol)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_keyword)
       break if _tmp
       self.pos = _save
       break
@@ -1318,8 +1362,9 @@ class Lambra::Parser
   Rules[:_nil] = rule_info("nil", "\"nil\" {nil_value(current_line, current_column)}")
   Rules[:_word] = rule_info("word", "< /[a-zA-Z_\\*][a-zA-Z0-9_\\-\\*]*/ > { text }")
   Rules[:_symbol] = rule_info("symbol", "word:w {symbol(current_line, current_column, w.to_sym)}")
+  Rules[:_keyword] = rule_info("keyword", "\":\" word:w {keyword(current_line, current_column, w.to_sym)}")
   Rules[:_string] = rule_info("string", "\"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(current_line, current_column, text)}")
-  Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | vector | symbol)")
+  Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | vector | symbol | keyword)")
   Rules[:_form] = rule_info("form", "(\"(\" expr_list:e \")\" {form(current_line, current_column, e)} | \"(\" \")\" {form(current_line, current_column, [])})")
   Rules[:_vector] = rule_info("vector", "(\"[\" expr_list:e \"]\" {vector(current_line, current_column, e)} | \"[\" \"]\" {vector(current_line, current_column, [])})")
   Rules[:_expr] = rule_info("expr", "(form | literal)")

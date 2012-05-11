@@ -6,6 +6,18 @@ describe "The Comment node" do
   end
 end
 
+describe "The Symbol node" do
+  relates "hello-world" do
+    parse { [:symbol, :"hello-world"] }
+  end
+end
+
+describe "The Keyword node" do
+  relates ":hello-world" do
+    parse { [:keyword, :"hello-world"] }
+  end
+end
+
 describe "The Number node" do
   relates "42" do
     parse { [:number, 42] }
