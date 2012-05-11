@@ -56,18 +56,18 @@ describe "The String node" do
   end
 end
  
-describe "The Form node" do
+describe "The List node" do
   relates '()' do
-    parse { [:form] }
+    parse { [:list] }
   end
 
   relates '(1 ,   2 3)' do
-    parse { [:form, [:number, 1], [:number, 2], [:number, 3]] }
+    parse { [:list, [:number, 1], [:number, 2], [:number, 3]] }
   end
 
   relates '(hello world 43 "hey")' do
     parse { 
-      [:form,
+      [:list,
         [:symbol, :hello],
         [:symbol, :world],
         [:number, 43.0],
@@ -77,9 +77,9 @@ describe "The Form node" do
 
   relates "(hello \n\t (world 43) \"hey\")" do
     parse { 
-      [:form,
+      [:list,
         [:symbol, :hello],
-        [:form,
+        [:list,
           [:symbol, :world],
           [:number, 43.0]],
         [:string, "hey"]]
@@ -110,7 +110,7 @@ describe "The Vector node" do
     parse { 
       [:vector,
         [:symbol, :hello],
-        [:form,
+        [:list,
           [:symbol, :world],
           [:number, 43.0]],
         [:string, "hey"]]

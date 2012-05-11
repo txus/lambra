@@ -36,7 +36,7 @@ module Lambra
       end
     end
 
-    class Form < Node
+    class List < Node
       def to_sexp
         [sexp_name, 
           *@elements.map(&:to_sexp)]

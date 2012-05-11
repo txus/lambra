@@ -366,16 +366,6 @@ class Lambra::Parser
       attr_reader :line
       attr_reader :column
     end
-    class Form < Node
-      def initialize(line, column, elements)
-        @line = line
-        @column = column
-        @elements = elements
-      end
-      attr_reader :line
-      attr_reader :column
-      attr_reader :elements
-    end
     class Keyword < Node
       def initialize(line, column, name)
         @line = line
@@ -385,6 +375,16 @@ class Lambra::Parser
       attr_reader :line
       attr_reader :column
       attr_reader :name
+    end
+    class List < Node
+      def initialize(line, column, elements)
+        @line = line
+        @column = column
+        @elements = elements
+      end
+      attr_reader :line
+      attr_reader :column
+      attr_reader :elements
     end
     class Nil < Node
       def initialize(line, column)
@@ -456,11 +456,11 @@ class Lambra::Parser
   def false_value(line, column)
     ::Lambra::AST::False.new(line, column)
   end
-  def form(line, column, elements)
-    ::Lambra::AST::Form.new(line, column, elements)
-  end
   def keyword(line, column, name)
     ::Lambra::AST::Keyword.new(line, column, name)
+  end
+  def list(line, column, elements)
+    ::Lambra::AST::List.new(line, column, elements)
   end
   def nil_value(line, column)
     ::Lambra::AST::Nil.new(line, column)
@@ -972,8 +972,8 @@ class Lambra::Parser
     return _tmp
   end
 
-  # form = ("(" expr_list:e ")" {form(current_line, current_column, e)} | "(" ")" {form(current_line, current_column, [])})
-  def _form
+  # list = ("(" expr_list:e ")" {list(current_line, current_column, e)} | "(" ")" {list(current_line, current_column, [])})
+  def _list
 
     _save = self.pos
     while true # choice
@@ -996,7 +996,7 @@ class Lambra::Parser
           self.pos = _save1
           break
         end
-        @result = begin; form(current_line, current_column, e); end
+        @result = begin; list(current_line, current_column, e); end
         _tmp = true
         unless _tmp
           self.pos = _save1
@@ -1019,7 +1019,7 @@ class Lambra::Parser
           self.pos = _save2
           break
         end
-        @result = begin; form(current_line, current_column, []); end
+        @result = begin; list(current_line, current_column, []); end
         _tmp = true
         unless _tmp
           self.pos = _save2
@@ -1032,7 +1032,7 @@ class Lambra::Parser
       break
     end # end choice
 
-    set_failed_rule :_form unless _tmp
+    set_failed_rule :_list unless _tmp
     return _tmp
   end
 
@@ -1100,12 +1100,12 @@ class Lambra::Parser
     return _tmp
   end
 
-  # expr = (form | literal)
+  # expr = (list | literal)
   def _expr
 
     _save = self.pos
     while true # choice
-      _tmp = apply(:_form)
+      _tmp = apply(:_list)
       break if _tmp
       self.pos = _save
       _tmp = apply(:_literal)
@@ -1365,9 +1365,9 @@ class Lambra::Parser
   Rules[:_keyword] = rule_info("keyword", "\":\" word:w {keyword(current_line, current_column, w.to_sym)}")
   Rules[:_string] = rule_info("string", "\"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(current_line, current_column, text)}")
   Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | vector | symbol | keyword)")
-  Rules[:_form] = rule_info("form", "(\"(\" expr_list:e \")\" {form(current_line, current_column, e)} | \"(\" \")\" {form(current_line, current_column, [])})")
+  Rules[:_list] = rule_info("list", "(\"(\" expr_list:e \")\" {list(current_line, current_column, e)} | \"(\" \")\" {list(current_line, current_column, [])})")
   Rules[:_vector] = rule_info("vector", "(\"[\" expr_list:e \"]\" {vector(current_line, current_column, e)} | \"[\" \"]\" {vector(current_line, current_column, [])})")
-  Rules[:_expr] = rule_info("expr", "(form | literal)")
+  Rules[:_expr] = rule_info("expr", "(list | literal)")
   Rules[:_many_expr] = rule_info("many_expr", "(comment:e many_expr:m { [e] + m } | expr:e many_expr:m { [e] + m } | expr:e { [e] })")
   Rules[:_sequence] = rule_info("sequence", "many_expr:e { e.size > 1 ? seq(current_line, current_column, e) : e.first }")
   Rules[:_expr_list_b] = rule_info("expr_list_b", "(expr:e br-sp expr_list_b:l { [e] + l } | expr:e { [e] })")

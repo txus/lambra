@@ -10,7 +10,7 @@
 %% symbol       = ast Symbol(line, column, name)
 %% keyword      = ast Keyword(line, column, name)
 %% seq          = ast Sequence(line, column, elements)
-%% form         = ast Form(line, column, elements)
+%% list         = ast List(line, column, elements)
 %% vector       = ast Vector(line, column, elements)
 
 eof = !.
@@ -53,13 +53,13 @@ literal = float
         | symbol
         | keyword
 
-form = "(" expr_list:e ")" ~form(current_line, current_column, e)
-     | "(" ")" ~form(current_line, current_column, [])
+list = "(" expr_list:e ")" ~list(current_line, current_column, e)
+     | "(" ")" ~list(current_line, current_column, [])
 
 vector = "[" expr_list:e "]" ~vector(current_line, current_column, e)
      | "[" "]" ~vector(current_line, current_column, [])
 
-expr = form
+expr = list
      | literal
 
 many_expr = comment:e many_expr:m { [e] + m }
