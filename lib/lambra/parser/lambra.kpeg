@@ -1,40 +1,72 @@
 %% name = Lambra::Parser
+%% { attr_accessor :ast }
 
-root      = - value? - end
+%% ast-location = ::Lambra::AST
+%% number       = ast Number(value)
+%% string_value = ast String(value)
+%% true_value   = ast True()
+%% false_value  = ast False()
+%% nil_value    = ast Nil()
+%% symbol       = ast Symbol(name)
+%% seq          = ast Sequence(elements)
+%% form         = ast Form(elements)
 
-end       = !.
--         = (" " | "\t" | "\n")*
+eof = !.
 
-value     = string
-          | number
-          | boolean
+space = " " | "\t"
 
+nl = "\n"
 
-boolean   = position (
-            true
-          | false
-          | null
-          | undefined)
+sp = space+
+- = space* 
 
-true      = "true" ~true_value
-false     = "false" ~false_value
-null      = "null" ~null_value
-undefined = "undefined" ~undefined_value
+comment = ";" (!nl .)* nl
 
+br-sp = (space | nl)*
 
-number    = position (
-            real
-          | hex
-          | int )
-
+number  = < /[1-9][0-9]*/ > { text }
+integer = number:n ~number(n.to_i)
+float   = number:w "." number:f ~number("#{w}.#{f}".to_f)
 hexdigits = /[0-9A-Fa-f]/
-hex       = '0x' < hexdigits+ > ~hexadecimal(text)
-digits    = '0' | /[1-9]/ /[0-9]/*
-int       = < digits > ~number(text)
-real      = < digits '.' digits ('e' /[-+]/? /[0-9]/+)? > ~number(text)
+hex     = '0x' < hexdigits+ > ~number(text.to_i(16))
 
+true  = "true" ~true_value()
+false = "false" ~false_value()
+nil   = "nil" ~nil_value()
 
-string    = position '"' < /[^\\"]*/ > '"' ~string_value(text)
+word = < /[a-zA-Z_][a-zA-Z0-9_]*/ > { text }
+symbol = word:w ~symbol(w.to_sym)
+
+string = '"' < /[^\\"]*/ > '"' ~string_value(text)
+
+literal = float
+        | integer
+        | hex
+        | true
+        | false
+        | nil
+        | string
+        | symbol
+
+form = "(" expr_list:e ")" ~form(e)
+     | "(" ")" ~form([])
+
+expr = position (
+       form
+     | literal)
+
+many_expr = comment:e many_expr:m { [e] + m }
+          | expr:e many_expr:m { [e] + m }
+          | expr:e { [e] } 
+
+sequence = many_expr:e { e.size > 1 ? seq(e) : e.first }
+
+expr_list_b = expr:e br-sp expr_list_b:l { [e] + l }
+            | expr:e { [e] }
+
+expr_list = br-sp expr_list_b:b br-sp { b }
+
+root = sequence:e eof { @ast = e }
 
 # keep track of column and line
 line      = { current_line }

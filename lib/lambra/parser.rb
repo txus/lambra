@@ -1,7 +1,7 @@
 require 'lambra/parser/parser'
 
 class Lambra::Parser
-  include Lambra::Syntax
+  # include Lambra::Syntax
 
   def self.parse_to_sexp(string)
     parser = new string

@@ -1,5 +1,17 @@
 class Lambra::Parser
-# STANDALONE START
+  # :stopdoc:
+
+    # This is distinct from setup_parser so that a standalone parser
+    # can redefine #initialize and still have access to the proper
+    # parser setup code.
+    def initialize(str, debug=false)
+      setup_parser(str, debug)
+    end
+
+
+
+    # Prepares for parsing +str+.  If you define a custom initialize you must
+    # call this method before #parse
     def setup_parser(str, debug=false)
       @string = str
       @pos = 0
@@ -11,19 +23,11 @@ class Lambra::Parser
       setup_foreign_grammar
     end
 
-    # This is distinct from setup_parser so that a standalone parser
-    # can redefine #initialize and still have access to the proper
-    # parser setup code.
-    #
-    def initialize(str, debug=false)
-      setup_parser(str, debug)
-    end
-
     attr_reader :string
     attr_reader :failing_rule_offset
     attr_accessor :result, :pos
 
-    # STANDALONE START
+    
     def current_column(target=pos)
       if c = string.rindex("\n", target-1)
         return target - c - 1
@@ -51,7 +55,7 @@ class Lambra::Parser
       lines
     end
 
-    #
+
 
     def get_text(start)
       @string[start..@pos-1]
@@ -186,41 +190,37 @@ class Lambra::Parser
     end
 
     def parse(rule=nil)
+      # We invoke the rules indirectly via apply
+      # instead of by just calling them as methods because
+      # if the rules use left recursion, apply needs to
+      # manage that.
+
       if !rule
-        _root ? true : false
+        apply(:_root)
       else
-        # This is not shared with code_generator.rb so this can be standalone
         method = rule.gsub("-","_hyphen_")
-        __send__("_#{method}") ? true : false
+        apply :"_#{method}"
       end
-    end
-
-    class LeftRecursive
-      def initialize(detected=false)
-        @detected = detected
-      end
-
-      attr_accessor :detected
     end
 
     class MemoEntry
       def initialize(ans, pos)
         @ans = ans
         @pos = pos
-        @uses = 1
         @result = nil
+        @set = false
+        @left_rec = false
       end
 
-      attr_reader :ans, :pos, :uses, :result
-
-      def inc!
-        @uses += 1
-      end
+      attr_reader :ans, :pos, :result, :set
+      attr_accessor :left_rec
 
       def move!(ans, pos, result)
         @ans = ans
         @pos = pos
         @result = result
+        @set = true
+        @left_rec = false
       end
     end
 
@@ -248,12 +248,9 @@ class Lambra::Parser
     def apply_with_args(rule, *args)
       memo_key = [rule, args]
       if m = @memoizations[memo_key][@pos]
-        m.inc!
-
-        prev = @pos
         @pos = m.pos
-        if m.ans.kind_of? LeftRecursive
-          m.ans.detected = true
+        if !m.set
+          m.left_rec = true
           return nil
         end
 
@@ -261,18 +258,19 @@ class Lambra::Parser
 
         return m.ans
       else
-        lr = LeftRecursive.new(false)
-        m = MemoEntry.new(lr, @pos)
+        m = MemoEntry.new(nil, @pos)
         @memoizations[memo_key][@pos] = m
         start_pos = @pos
 
         ans = __send__ rule, *args
 
+        lr = m.left_rec
+
         m.move! ans, @pos, @result
 
         # Don't bother trying to grow the left recursion
         # if it's failing straight away (thus there is no seed)
-        if ans and lr.detected
+        if ans and lr
           return grow_lr(rule, args, start_pos, m)
         else
           return ans
@@ -284,12 +282,9 @@ class Lambra::Parser
 
     def apply(rule)
       if m = @memoizations[rule][@pos]
-        m.inc!
-
-        prev = @pos
         @pos = m.pos
-        if m.ans.kind_of? LeftRecursive
-          m.ans.detected = true
+        if !m.set
+          m.left_rec = true
           return nil
         end
 
@@ -297,18 +292,19 @@ class Lambra::Parser
 
         return m.ans
       else
-        lr = LeftRecursive.new(false)
-        m = MemoEntry.new(lr, @pos)
+        m = MemoEntry.new(nil, @pos)
         @memoizations[rule][@pos] = m
         start_pos = @pos
 
         ans = __send__ rule
 
+        lr = m.left_rec
+
         m.move! ans, @pos, @result
 
         # Don't bother trying to grow the left recursion
         # if it's failing straight away (thus there is no seed)
-        if ans and lr.detected
+        if ans and lr
           return grow_lr(rule, nil, start_pos, m)
         else
           return ans
@@ -353,68 +349,204 @@ class Lambra::Parser
       RuleInfo.new(name, rendered)
     end
 
-    #
+
+  # :startdoc:
+
+ attr_accessor :ast 
+
+  # :stopdoc:
+
+  module ::Lambra::AST
+    class Node; end
+    class False < Node
+      def initialize()
+      end
+    end
+    class Form < Node
+      def initialize(elements)
+        @elements = elements
+      end
+      attr_reader :elements
+    end
+    class Nil < Node
+      def initialize()
+      end
+    end
+    class Number < Node
+      def initialize(value)
+        @value = value
+      end
+      attr_reader :value
+    end
+    class Sequence < Node
+      def initialize(elements)
+        @elements = elements
+      end
+      attr_reader :elements
+    end
+    class String < Node
+      def initialize(value)
+        @value = value
+      end
+      attr_reader :value
+    end
+    class Symbol < Node
+      def initialize(name)
+        @name = name
+      end
+      attr_reader :name
+    end
+    class True < Node
+      def initialize()
+      end
+    end
+  end
+  def false_value()
+    ::Lambra::AST::False.new()
+  end
+  def form(elements)
+    ::Lambra::AST::Form.new(elements)
+  end
+  def nil_value()
+    ::Lambra::AST::Nil.new()
+  end
+  def number(value)
+    ::Lambra::AST::Number.new(value)
+  end
+  def seq(elements)
+    ::Lambra::AST::Sequence.new(elements)
+  end
+  def string_value(value)
+    ::Lambra::AST::String.new(value)
+  end
+  def symbol(name)
+    ::Lambra::AST::Symbol.new(name)
+  end
+  def true_value()
+    ::Lambra::AST::True.new()
+  end
   def setup_foreign_grammar; end
 
-  # root = - value? - end
-  def _root
+  # eof = !.
+  def _eof
+    _save = self.pos
+    _tmp = get_byte
+    _tmp = _tmp ? nil : true
+    self.pos = _save
+    set_failed_rule :_eof unless _tmp
+    return _tmp
+  end
+
+  # space = (" " | "\t")
+  def _space
+
+    _save = self.pos
+    while true # choice
+      _tmp = match_string(" ")
+      break if _tmp
+      self.pos = _save
+      _tmp = match_string("\t")
+      break if _tmp
+      self.pos = _save
+      break
+    end # end choice
+
+    set_failed_rule :_space unless _tmp
+    return _tmp
+  end
+
+  # nl = "\n"
+  def _nl
+    _tmp = match_string("\n")
+    set_failed_rule :_nl unless _tmp
+    return _tmp
+  end
+
+  # sp = space+
+  def _sp
+    _save = self.pos
+    _tmp = apply(:_space)
+    if _tmp
+      while true
+        _tmp = apply(:_space)
+        break unless _tmp
+      end
+      _tmp = true
+    else
+      self.pos = _save
+    end
+    set_failed_rule :_sp unless _tmp
+    return _tmp
+  end
+
+  # - = space*
+  def __hyphen_
+    while true
+      _tmp = apply(:_space)
+      break unless _tmp
+    end
+    _tmp = true
+    set_failed_rule :__hyphen_ unless _tmp
+    return _tmp
+  end
+
+  # comment = ";" (!nl .)* nl
+  def _comment
 
     _save = self.pos
     while true # sequence
-      _tmp = apply(:__hyphen_)
+      _tmp = match_string(";")
       unless _tmp
         self.pos = _save
         break
       end
-      _save1 = self.pos
-      _tmp = apply(:_value)
-      unless _tmp
-        _tmp = true
-        self.pos = _save1
+      while true
+
+        _save2 = self.pos
+        while true # sequence
+          _save3 = self.pos
+          _tmp = apply(:_nl)
+          _tmp = _tmp ? nil : true
+          self.pos = _save3
+          unless _tmp
+            self.pos = _save2
+            break
+          end
+          _tmp = get_byte
+          unless _tmp
+            self.pos = _save2
+          end
+          break
+        end # end sequence
+
+        break unless _tmp
       end
+      _tmp = true
       unless _tmp
         self.pos = _save
         break
       end
-      _tmp = apply(:__hyphen_)
-      unless _tmp
-        self.pos = _save
-        break
-      end
-      _tmp = apply(:_end)
+      _tmp = apply(:_nl)
       unless _tmp
         self.pos = _save
       end
       break
     end # end sequence
 
-    set_failed_rule :_root unless _tmp
+    set_failed_rule :_comment unless _tmp
     return _tmp
   end
 
-  # end = !.
-  def _end
-    _save = self.pos
-    _tmp = get_byte
-    _tmp = _tmp ? nil : true
-    self.pos = _save
-    set_failed_rule :_end unless _tmp
-    return _tmp
-  end
-
-  # - = (" " | "\t" | "\n")*
-  def __hyphen_
+  # br-sp = (space | nl)*
+  def _br_hyphen_sp
     while true
 
       _save1 = self.pos
       while true # choice
-        _tmp = match_string(" ")
+        _tmp = apply(:_space)
         break if _tmp
         self.pos = _save1
-        _tmp = match_string("\t")
-        break if _tmp
-        self.pos = _save1
-        _tmp = match_string("\n")
+        _tmp = apply(:_nl)
         break if _tmp
         self.pos = _save1
         break
@@ -423,182 +555,26 @@ class Lambra::Parser
       break unless _tmp
     end
     _tmp = true
-    set_failed_rule :__hyphen_ unless _tmp
+    set_failed_rule :_br_hyphen_sp unless _tmp
     return _tmp
   end
 
-  # value = (string | number | boolean)
-  def _value
-
-    _save = self.pos
-    while true # choice
-      _tmp = apply(:_string)
-      break if _tmp
-      self.pos = _save
-      _tmp = apply(:_number)
-      break if _tmp
-      self.pos = _save
-      _tmp = apply(:_boolean)
-      break if _tmp
-      self.pos = _save
-      break
-    end # end choice
-
-    set_failed_rule :_value unless _tmp
-    return _tmp
-  end
-
-  # boolean = position (true | false | null | undefined)
-  def _boolean
-
-    _save = self.pos
-    while true # sequence
-      _tmp = apply(:_position)
-      unless _tmp
-        self.pos = _save
-        break
-      end
-
-      _save1 = self.pos
-      while true # choice
-        _tmp = apply(:_true)
-        break if _tmp
-        self.pos = _save1
-        _tmp = apply(:_false)
-        break if _tmp
-        self.pos = _save1
-        _tmp = apply(:_null)
-        break if _tmp
-        self.pos = _save1
-        _tmp = apply(:_undefined)
-        break if _tmp
-        self.pos = _save1
-        break
-      end # end choice
-
-      unless _tmp
-        self.pos = _save
-      end
-      break
-    end # end sequence
-
-    set_failed_rule :_boolean unless _tmp
-    return _tmp
-  end
-
-  # true = "true" {true_value}
-  def _true
-
-    _save = self.pos
-    while true # sequence
-      _tmp = match_string("true")
-      unless _tmp
-        self.pos = _save
-        break
-      end
-      @result = begin; true_value; end
-      _tmp = true
-      unless _tmp
-        self.pos = _save
-      end
-      break
-    end # end sequence
-
-    set_failed_rule :_true unless _tmp
-    return _tmp
-  end
-
-  # false = "false" {false_value}
-  def _false
-
-    _save = self.pos
-    while true # sequence
-      _tmp = match_string("false")
-      unless _tmp
-        self.pos = _save
-        break
-      end
-      @result = begin; false_value; end
-      _tmp = true
-      unless _tmp
-        self.pos = _save
-      end
-      break
-    end # end sequence
-
-    set_failed_rule :_false unless _tmp
-    return _tmp
-  end
-
-  # null = "null" {null_value}
-  def _null
-
-    _save = self.pos
-    while true # sequence
-      _tmp = match_string("null")
-      unless _tmp
-        self.pos = _save
-        break
-      end
-      @result = begin; null_value; end
-      _tmp = true
-      unless _tmp
-        self.pos = _save
-      end
-      break
-    end # end sequence
-
-    set_failed_rule :_null unless _tmp
-    return _tmp
-  end
-
-  # undefined = "undefined" {undefined_value}
-  def _undefined
-
-    _save = self.pos
-    while true # sequence
-      _tmp = match_string("undefined")
-      unless _tmp
-        self.pos = _save
-        break
-      end
-      @result = begin; undefined_value; end
-      _tmp = true
-      unless _tmp
-        self.pos = _save
-      end
-      break
-    end # end sequence
-
-    set_failed_rule :_undefined unless _tmp
-    return _tmp
-  end
-
-  # number = position (real | hex | int)
+  # number = < /[1-9][0-9]*/ > { text }
   def _number
 
     _save = self.pos
     while true # sequence
-      _tmp = apply(:_position)
+      _text_start = self.pos
+      _tmp = scan(/\A(?-mix:[1-9][0-9]*)/)
+      if _tmp
+        text = get_text(_text_start)
+      end
       unless _tmp
         self.pos = _save
         break
       end
-
-      _save1 = self.pos
-      while true # choice
-        _tmp = apply(:_real)
-        break if _tmp
-        self.pos = _save1
-        _tmp = apply(:_hex)
-        break if _tmp
-        self.pos = _save1
-        _tmp = apply(:_int)
-        break if _tmp
-        self.pos = _save1
-        break
-      end # end choice
-
+      @result = begin;  text ; end
+      _tmp = true
       unless _tmp
         self.pos = _save
       end
@@ -609,6 +585,63 @@ class Lambra::Parser
     return _tmp
   end
 
+  # integer = number:n {number(n.to_i)}
+  def _integer
+
+    _save = self.pos
+    while true # sequence
+      _tmp = apply(:_number)
+      n = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin; number(n.to_i); end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_integer unless _tmp
+    return _tmp
+  end
+
+  # float = number:w "." number:f {number("#{w}.#{f}".to_f)}
+  def _float
+
+    _save = self.pos
+    while true # sequence
+      _tmp = apply(:_number)
+      w = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      _tmp = match_string(".")
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      _tmp = apply(:_number)
+      f = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin; number("#{w}.#{f}".to_f); end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_float unless _tmp
+    return _tmp
+  end
+
   # hexdigits = /[0-9A-Fa-f]/
   def _hexdigits
     _tmp = scan(/\A(?-mix:[0-9A-Fa-f])/)
@@ -616,7 +649,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # hex = "0x" < hexdigits+ > {hexadecimal(text)}
+  # hex = "0x" < hexdigits+ > {number(text.to_i(16))}
   def _hex
 
     _save = self.pos
@@ -645,7 +678,7 @@ class Lambra::Parser
         self.pos = _save
         break
       end
-      @result = begin; hexadecimal(text); end
+      @result = begin; number(text.to_i(16)); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -657,57 +690,17 @@ class Lambra::Parser
     return _tmp
   end
 
-  # digits = ("0" | /[1-9]/ /[0-9]/*)
-  def _digits
-
-    _save = self.pos
-    while true # choice
-      _tmp = match_string("0")
-      break if _tmp
-      self.pos = _save
-
-      _save1 = self.pos
-      while true # sequence
-        _tmp = scan(/\A(?-mix:[1-9])/)
-        unless _tmp
-          self.pos = _save1
-          break
-        end
-        while true
-          _tmp = scan(/\A(?-mix:[0-9])/)
-          break unless _tmp
-        end
-        _tmp = true
-        unless _tmp
-          self.pos = _save1
-        end
-        break
-      end # end sequence
-
-      break if _tmp
-      self.pos = _save
-      break
-    end # end choice
-
-    set_failed_rule :_digits unless _tmp
-    return _tmp
-  end
-
-  # int = < digits > {number(text)}
-  def _int
+  # true = "true" {true_value()}
+  def _true
 
     _save = self.pos
     while true # sequence
-      _text_start = self.pos
-      _tmp = apply(:_digits)
-      if _tmp
-        text = get_text(_text_start)
-      end
+      _tmp = match_string("true")
       unless _tmp
         self.pos = _save
         break
       end
-      @result = begin; number(text); end
+      @result = begin; true_value(); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -715,88 +708,21 @@ class Lambra::Parser
       break
     end # end sequence
 
-    set_failed_rule :_int unless _tmp
+    set_failed_rule :_true unless _tmp
     return _tmp
   end
 
-  # real = < digits "." digits ("e" /[-+]/? /[0-9]/+)? > {number(text)}
-  def _real
+  # false = "false" {false_value()}
+  def _false
 
     _save = self.pos
     while true # sequence
-      _text_start = self.pos
-
-      _save1 = self.pos
-      while true # sequence
-        _tmp = apply(:_digits)
-        unless _tmp
-          self.pos = _save1
-          break
-        end
-        _tmp = match_string(".")
-        unless _tmp
-          self.pos = _save1
-          break
-        end
-        _tmp = apply(:_digits)
-        unless _tmp
-          self.pos = _save1
-          break
-        end
-        _save2 = self.pos
-
-        _save3 = self.pos
-        while true # sequence
-          _tmp = match_string("e")
-          unless _tmp
-            self.pos = _save3
-            break
-          end
-          _save4 = self.pos
-          _tmp = scan(/\A(?-mix:[-+])/)
-          unless _tmp
-            _tmp = true
-            self.pos = _save4
-          end
-          unless _tmp
-            self.pos = _save3
-            break
-          end
-          _save5 = self.pos
-          _tmp = scan(/\A(?-mix:[0-9])/)
-          if _tmp
-            while true
-              _tmp = scan(/\A(?-mix:[0-9])/)
-              break unless _tmp
-            end
-            _tmp = true
-          else
-            self.pos = _save5
-          end
-          unless _tmp
-            self.pos = _save3
-          end
-          break
-        end # end sequence
-
-        unless _tmp
-          _tmp = true
-          self.pos = _save2
-        end
-        unless _tmp
-          self.pos = _save1
-        end
-        break
-      end # end sequence
-
-      if _tmp
-        text = get_text(_text_start)
-      end
+      _tmp = match_string("false")
       unless _tmp
         self.pos = _save
         break
       end
-      @result = begin; number(text); end
+      @result = begin; false_value(); end
       _tmp = true
       unless _tmp
         self.pos = _save
@@ -804,20 +730,86 @@ class Lambra::Parser
       break
     end # end sequence
 
-    set_failed_rule :_real unless _tmp
+    set_failed_rule :_false unless _tmp
     return _tmp
   end
 
-  # string = position "\"" < /[^\\"]*/ > "\"" {string_value(text)}
+  # nil = "nil" {nil_value()}
+  def _nil
+
+    _save = self.pos
+    while true # sequence
+      _tmp = match_string("nil")
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin; nil_value(); end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_nil unless _tmp
+    return _tmp
+  end
+
+  # word = < /[a-zA-Z_][a-zA-Z0-9_]*/ > { text }
+  def _word
+
+    _save = self.pos
+    while true # sequence
+      _text_start = self.pos
+      _tmp = scan(/\A(?-mix:[a-zA-Z_][a-zA-Z0-9_]*)/)
+      if _tmp
+        text = get_text(_text_start)
+      end
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin;  text ; end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_word unless _tmp
+    return _tmp
+  end
+
+  # symbol = word:w {symbol(w.to_sym)}
+  def _symbol
+
+    _save = self.pos
+    while true # sequence
+      _tmp = apply(:_word)
+      w = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin; symbol(w.to_sym); end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_symbol unless _tmp
+    return _tmp
+  end
+
+  # string = "\"" < /[^\\"]*/ > "\"" {string_value(text)}
   def _string
 
     _save = self.pos
     while true # sequence
-      _tmp = apply(:_position)
-      unless _tmp
-        self.pos = _save
-        break
-      end
       _tmp = match_string("\"")
       unless _tmp
         self.pos = _save
@@ -846,6 +838,364 @@ class Lambra::Parser
     end # end sequence
 
     set_failed_rule :_string unless _tmp
+    return _tmp
+  end
+
+  # literal = (float | integer | hex | true | false | nil | string | symbol)
+  def _literal
+
+    _save = self.pos
+    while true # choice
+      _tmp = apply(:_float)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_integer)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_hex)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_true)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_false)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_nil)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_string)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_symbol)
+      break if _tmp
+      self.pos = _save
+      break
+    end # end choice
+
+    set_failed_rule :_literal unless _tmp
+    return _tmp
+  end
+
+  # form = ("(" expr_list:e ")" {form(e)} | "(" ")" {form([])})
+  def _form
+
+    _save = self.pos
+    while true # choice
+
+      _save1 = self.pos
+      while true # sequence
+        _tmp = match_string("(")
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        _tmp = apply(:_expr_list)
+        e = @result
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        _tmp = match_string(")")
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        @result = begin; form(e); end
+        _tmp = true
+        unless _tmp
+          self.pos = _save1
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+
+      _save2 = self.pos
+      while true # sequence
+        _tmp = match_string("(")
+        unless _tmp
+          self.pos = _save2
+          break
+        end
+        _tmp = match_string(")")
+        unless _tmp
+          self.pos = _save2
+          break
+        end
+        @result = begin; form([]); end
+        _tmp = true
+        unless _tmp
+          self.pos = _save2
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+      break
+    end # end choice
+
+    set_failed_rule :_form unless _tmp
+    return _tmp
+  end
+
+  # expr = position (form | literal)
+  def _expr
+
+    _save = self.pos
+    while true # sequence
+      _tmp = apply(:_position)
+      unless _tmp
+        self.pos = _save
+        break
+      end
+
+      _save1 = self.pos
+      while true # choice
+        _tmp = apply(:_form)
+        break if _tmp
+        self.pos = _save1
+        _tmp = apply(:_literal)
+        break if _tmp
+        self.pos = _save1
+        break
+      end # end choice
+
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_expr unless _tmp
+    return _tmp
+  end
+
+  # many_expr = (comment:e many_expr:m { [e] + m } | expr:e many_expr:m { [e] + m } | expr:e { [e] })
+  def _many_expr
+
+    _save = self.pos
+    while true # choice
+
+      _save1 = self.pos
+      while true # sequence
+        _tmp = apply(:_comment)
+        e = @result
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        _tmp = apply(:_many_expr)
+        m = @result
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        @result = begin;  [e] + m ; end
+        _tmp = true
+        unless _tmp
+          self.pos = _save1
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+
+      _save2 = self.pos
+      while true # sequence
+        _tmp = apply(:_expr)
+        e = @result
+        unless _tmp
+          self.pos = _save2
+          break
+        end
+        _tmp = apply(:_many_expr)
+        m = @result
+        unless _tmp
+          self.pos = _save2
+          break
+        end
+        @result = begin;  [e] + m ; end
+        _tmp = true
+        unless _tmp
+          self.pos = _save2
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+
+      _save3 = self.pos
+      while true # sequence
+        _tmp = apply(:_expr)
+        e = @result
+        unless _tmp
+          self.pos = _save3
+          break
+        end
+        @result = begin;  [e] ; end
+        _tmp = true
+        unless _tmp
+          self.pos = _save3
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+      break
+    end # end choice
+
+    set_failed_rule :_many_expr unless _tmp
+    return _tmp
+  end
+
+  # sequence = many_expr:e { e.size > 1 ? seq(e) : e.first }
+  def _sequence
+
+    _save = self.pos
+    while true # sequence
+      _tmp = apply(:_many_expr)
+      e = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin;  e.size > 1 ? seq(e) : e.first ; end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_sequence unless _tmp
+    return _tmp
+  end
+
+  # expr_list_b = (expr:e br-sp expr_list_b:l { [e] + l } | expr:e { [e] })
+  def _expr_list_b
+
+    _save = self.pos
+    while true # choice
+
+      _save1 = self.pos
+      while true # sequence
+        _tmp = apply(:_expr)
+        e = @result
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        _tmp = apply(:_br_hyphen_sp)
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        _tmp = apply(:_expr_list_b)
+        l = @result
+        unless _tmp
+          self.pos = _save1
+          break
+        end
+        @result = begin;  [e] + l ; end
+        _tmp = true
+        unless _tmp
+          self.pos = _save1
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+
+      _save2 = self.pos
+      while true # sequence
+        _tmp = apply(:_expr)
+        e = @result
+        unless _tmp
+          self.pos = _save2
+          break
+        end
+        @result = begin;  [e] ; end
+        _tmp = true
+        unless _tmp
+          self.pos = _save2
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+      break
+    end # end choice
+
+    set_failed_rule :_expr_list_b unless _tmp
+    return _tmp
+  end
+
+  # expr_list = br-sp expr_list_b:b br-sp { b }
+  def _expr_list
+
+    _save = self.pos
+    while true # sequence
+      _tmp = apply(:_br_hyphen_sp)
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      _tmp = apply(:_expr_list_b)
+      b = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      _tmp = apply(:_br_hyphen_sp)
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin;  b ; end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_expr_list unless _tmp
+    return _tmp
+  end
+
+  # root = sequence:e eof { @ast = e }
+  def _root
+
+    _save = self.pos
+    while true # sequence
+      _tmp = apply(:_sequence)
+      e = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      _tmp = apply(:_eof)
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin;  @ast = e ; end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_root unless _tmp
     return _tmp
   end
 
@@ -895,23 +1245,34 @@ class Lambra::Parser
   end
 
   Rules = {}
-  Rules[:_root] = rule_info("root", "- value? - end")
-  Rules[:_end] = rule_info("end", "!.")
-  Rules[:__hyphen_] = rule_info("-", "(\" \" | \"\\t\" | \"\\n\")*")
-  Rules[:_value] = rule_info("value", "(string | number | boolean)")
-  Rules[:_boolean] = rule_info("boolean", "position (true | false | null | undefined)")
-  Rules[:_true] = rule_info("true", "\"true\" {true_value}")
-  Rules[:_false] = rule_info("false", "\"false\" {false_value}")
-  Rules[:_null] = rule_info("null", "\"null\" {null_value}")
-  Rules[:_undefined] = rule_info("undefined", "\"undefined\" {undefined_value}")
-  Rules[:_number] = rule_info("number", "position (real | hex | int)")
+  Rules[:_eof] = rule_info("eof", "!.")
+  Rules[:_space] = rule_info("space", "(\" \" | \"\\t\")")
+  Rules[:_nl] = rule_info("nl", "\"\\n\"")
+  Rules[:_sp] = rule_info("sp", "space+")
+  Rules[:__hyphen_] = rule_info("-", "space*")
+  Rules[:_comment] = rule_info("comment", "\";\" (!nl .)* nl")
+  Rules[:_br_hyphen_sp] = rule_info("br-sp", "(space | nl)*")
+  Rules[:_number] = rule_info("number", "< /[1-9][0-9]*/ > { text }")
+  Rules[:_integer] = rule_info("integer", "number:n {number(n.to_i)}")
+  Rules[:_float] = rule_info("float", "number:w \".\" number:f {number(\"\#{w}.\#{f}\".to_f)}")
   Rules[:_hexdigits] = rule_info("hexdigits", "/[0-9A-Fa-f]/")
-  Rules[:_hex] = rule_info("hex", "\"0x\" < hexdigits+ > {hexadecimal(text)}")
-  Rules[:_digits] = rule_info("digits", "(\"0\" | /[1-9]/ /[0-9]/*)")
-  Rules[:_int] = rule_info("int", "< digits > {number(text)}")
-  Rules[:_real] = rule_info("real", "< digits \".\" digits (\"e\" /[-+]/? /[0-9]/+)? > {number(text)}")
-  Rules[:_string] = rule_info("string", "position \"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(text)}")
+  Rules[:_hex] = rule_info("hex", "\"0x\" < hexdigits+ > {number(text.to_i(16))}")
+  Rules[:_true] = rule_info("true", "\"true\" {true_value()}")
+  Rules[:_false] = rule_info("false", "\"false\" {false_value()}")
+  Rules[:_nil] = rule_info("nil", "\"nil\" {nil_value()}")
+  Rules[:_word] = rule_info("word", "< /[a-zA-Z_][a-zA-Z0-9_]*/ > { text }")
+  Rules[:_symbol] = rule_info("symbol", "word:w {symbol(w.to_sym)}")
+  Rules[:_string] = rule_info("string", "\"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(text)}")
+  Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | symbol)")
+  Rules[:_form] = rule_info("form", "(\"(\" expr_list:e \")\" {form(e)} | \"(\" \")\" {form([])})")
+  Rules[:_expr] = rule_info("expr", "position (form | literal)")
+  Rules[:_many_expr] = rule_info("many_expr", "(comment:e many_expr:m { [e] + m } | expr:e many_expr:m { [e] + m } | expr:e { [e] })")
+  Rules[:_sequence] = rule_info("sequence", "many_expr:e { e.size > 1 ? seq(e) : e.first }")
+  Rules[:_expr_list_b] = rule_info("expr_list_b", "(expr:e br-sp expr_list_b:l { [e] + l } | expr:e { [e] })")
+  Rules[:_expr_list] = rule_info("expr_list", "br-sp expr_list_b:b br-sp { b }")
+  Rules[:_root] = rule_info("root", "sequence:e eof { @ast = e }")
   Rules[:_line] = rule_info("line", "{ current_line }")
   Rules[:_column] = rule_info("column", "{ current_column }")
   Rules[:_position] = rule_info("position", "line:l column:c { position(l, c) }")
+  # :startdoc:
 end

@@ -1,31 +1,38 @@
 module Lambra
-  module Syntax
-    def number(value)
-      Number.new line, column, value
+  module AST
+    class Node
+      def sexp_name
+        self.class.name.split('::').last.downcase.to_sym
+      end
+
+      def to_sexp
+        [sexp_name]
+      end
     end
 
-    def hexadecimal(value)
-      Number.new line, column, value.to_i(16)
+    class Number < Node
+      def to_sexp
+        [sexp_name, @value]
+      end
     end
 
-    def true_value
-      True.new line, column
+    class String < Node
+      def to_sexp
+        [sexp_name, @value]
+      end
     end
 
-    def false_value
-      False.new line, column
+    class Symbol < Node
+      def to_sexp
+        [sexp_name, @name]
+      end
     end
 
-    def null_value
-      Null.new line, column
-    end
-
-    def undefined_value
-      Undefined.new line, column
-    end
-
-    def string_value(value)
-      String.new line, column, value
+    class Form < Node
+      def to_sexp
+        [sexp_name, 
+          *@elements.map(&:to_sexp)]
+      end
     end
   end
 end
