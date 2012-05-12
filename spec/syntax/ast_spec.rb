@@ -153,10 +153,10 @@ describe "Macros" do
     end
   end
 
-  relates "'foo" do
+  relates "@foo" do
     parse do
       [:list,
-        [:symbol, :quote],
+        [:symbol, :deref],
         [:symbol, :foo]]
     end
   end

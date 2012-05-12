@@ -1025,14 +1025,53 @@ class Lambra::Parser
     return _tmp
   end
 
-  # macro = quote
+  # deref = "@" word:w {list(current_line, current_column, [symbol(current_line, current_column, :deref), symbol(current_line, current_column, w.to_sym)])}
+  def _deref
+
+    _save = self.pos
+    while true # sequence
+      _tmp = match_string("@")
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      _tmp = apply(:_word)
+      w = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin; list(current_line, current_column, [symbol(current_line, current_column, :deref), symbol(current_line, current_column, w.to_sym)]); end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_deref unless _tmp
+    return _tmp
+  end
+
+  # macro = (quote | deref)
   def _macro
-    _tmp = apply(:_quote)
+
+    _save = self.pos
+    while true # choice
+      _tmp = apply(:_quote)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_deref)
+      break if _tmp
+      self.pos = _save
+      break
+    end # end choice
+
     set_failed_rule :_macro unless _tmp
     return _tmp
   end
 
-  # literal = (float | integer | hex | true | false | nil | string | character | vector | set | map | symbol | quote | keyword)
+  # literal = (float | integer | hex | true | false | nil | string | character | vector | set | map | symbol | macro | keyword)
   def _literal
 
     _save = self.pos
@@ -1073,7 +1112,7 @@ class Lambra::Parser
       _tmp = apply(:_symbol)
       break if _tmp
       self.pos = _save
-      _tmp = apply(:_quote)
+      _tmp = apply(:_macro)
       break if _tmp
       self.pos = _save
       _tmp = apply(:_keyword)
@@ -1608,8 +1647,9 @@ class Lambra::Parser
   Rules[:_string] = rule_info("string", "\"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(current_line, current_column, text)}")
   Rules[:_character] = rule_info("character", "\"\\\\\" word:w {char_value(current_line, current_column, w.to_sym)}")
   Rules[:_quote] = rule_info("quote", "\"'\" word:w {list(current_line, current_column, [symbol(current_line, current_column, :quote), symbol(current_line, current_column, w.to_sym)])}")
-  Rules[:_macro] = rule_info("macro", "quote")
-  Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | character | vector | set | map | symbol | quote | keyword)")
+  Rules[:_deref] = rule_info("deref", "\"@\" word:w {list(current_line, current_column, [symbol(current_line, current_column, :deref), symbol(current_line, current_column, w.to_sym)])}")
+  Rules[:_macro] = rule_info("macro", "(quote | deref)")
+  Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | character | vector | set | map | symbol | macro | keyword)")
   Rules[:_list] = rule_info("list", "(\"(\" expr_list:e \")\" {list(current_line, current_column, e)} | \"(\" \")\" {list(current_line, current_column, [])})")
   Rules[:_vector] = rule_info("vector", "(\"[\" expr_list:e \"]\" {vector(current_line, current_column, e)} | \"[\" \"]\" {vector(current_line, current_column, [])})")
   Rules[:_set] = rule_info("set", "(\"\#{\" expr_list:e \"}\" {set(current_line, current_column, e)} | \"\#{\" \"}\" {set(current_line, current_column, [])})")

@@ -48,8 +48,12 @@ character = "\\" word:w ~char_value(current_line, current_column, w.to_sym)
 
 # MACROS
 quote  = "'" word:w ~list(current_line, current_column, [symbol(current_line, current_column, :quote), symbol(current_line, current_column, w.to_sym)])
+deref  = "@" word:w ~list(current_line, current_column, [symbol(current_line, current_column, :deref), symbol(current_line, current_column, w.to_sym)])
 
 macro = quote
+      | deref
+
+# END MACROS
 
 literal = float
         | integer
@@ -63,7 +67,7 @@ literal = float
         | set
         | map
         | symbol
-        | quote
+        | macro
         | keyword
 
 list = "(" expr_list:e ")" ~list(current_line, current_column, e)
