@@ -97,8 +97,13 @@ describe "The String node" do
 end
 
 describe "The Character node" do
-  relates '\space' do
-    parse { [:character, :space] }
+  relates '\d' do
+    parse { [:character, :d] }
+
+    compile do |g|
+      g.push_literal :d
+      g.ret
+    end
   end
 end
  
@@ -136,10 +141,23 @@ end
 describe "The Vector node" do
   relates '[]' do
     parse { [:vector] }
+
+    compile do |g|
+      g.make_array 0
+      g.ret
+    end
   end
 
   relates '[1 ,   2 3]' do
     parse { [:vector, [:number, 1], [:number, 2], [:number, 3]] }
+
+    compile do |g|
+      g.push_literal 1
+      g.push_literal 2
+      g.push_literal 3
+      g.make_array 3
+      g.ret
+    end
   end
 
   relates '[hello world 43 "hey"]' do

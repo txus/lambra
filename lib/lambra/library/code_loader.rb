@@ -7,8 +7,10 @@ module Lambra
     end
 
     def self.execute_file(name)
-      value = Lambra::Parser.parse IO.read(name)
-      p value
+      ast = Lambra::Parser.parse IO.read(name)
+      def ast.filename; name; end
+      visitor = BytecodeCompiler.new
+      cm      = visitor.compile(ast)
     end
   end
 end

@@ -10,12 +10,24 @@ class CompileAsMatcher
 
 
     @actual = visitor.generator
-    @expected.stream == @actual.stream
+    @expected.literals == @actual.literals &&
+      @expected.stream == @actual.stream
   end
 
   def failure_message
-    ["Expected:\n#{@actual.stream.inspect}\n",
-     "to equal:\n#{@expected.stream.inspect}"]
+    instruction_to_name = lambda do |i|
+      instruct = Rubinius::InstructionSet[i]
+      instruct.name
+    end
+
+    actual_stream   = @actual.stream.map(&instruction_to_name)
+    expected_stream = @expected.stream.map(&instruction_to_name)
+
+    actual_literals = @actual.literals.map(&:inspect).join(', ')
+    expected_literals = @expected.literals.map(&:inspect).join(', ')
+
+    ["Expected:\n\t#{actual_stream.join("\n\t")}\nLITERALS: #{actual_literals}\n",
+     "to equal:\n\t#{expected_stream.join("\n\t")}\nLITERALS: #{expected_literals}"]
   end
 end
 

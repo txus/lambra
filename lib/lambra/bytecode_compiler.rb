@@ -13,11 +13,11 @@ module Lambra
         pp ast.to_sexp
       end
 
-      # if ast.respond_to?(:filename) && ast.filename
-      #   g.file = ast.filename
-      # else
-      #   g.file = :"(lambra)"
-      # end
+      if ast.respond_to?(:filename) && ast.filename
+        g.file = ast.filename
+      else
+        g.file = :"(lambra)"
+      end
 
       g.set_line ast.line || 1
 
@@ -30,33 +30,57 @@ module Lambra
     end
 
     def visit_List(o)
+      set_line(o)
       return g.push_nil if o.elements.count.zero?
     end
 
     def visit_Number(o)
+      set_line(o)
+      g.push_literal o.value
+    end
+
+    def visit_Character(o)
+      set_line(o)
       g.push_literal o.value
     end
 
     def visit_String(o)
+      set_line(o)
       g.push_literal o.value
     end
 
     def visit_True(o)
+      set_line(o)
       g.push_true
     end
 
     def visit_False(o)
+      set_line(o)
       g.push_false
     end
 
     def visit_Nil(o)
+      set_line(o)
       g.push_nil
     end
 
     def visit_Sequence(o)
+      set_line(o)
+
       o.elements.compact.each do |element|
         element.accept(self)
       end
+    end
+
+    def visit_Vector(o)
+      count = o.elements.size
+
+      set_line(o)
+      o.elements.each do |x|
+        x.accept(self)
+      end
+
+      g.make_array count
     end
 
     def finalize
