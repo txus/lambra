@@ -32,6 +32,26 @@ module Lambra
     def visit_List(o)
       set_line(o)
       return g.push_nil if o.elements.count.zero?
+      car = o.elements[0]
+      cdr = o.elements[1..-1]
+      args = cdr.count
+
+      visit_Symbol(car)
+
+      # TODO: lazy evaluation
+      cdr.each do |arg|
+        arg.accept(self)
+      end
+
+      g.send :call, args
+    end
+
+    def visit_Symbol(o)
+      set_line(o)
+      g.push_cpath_top
+      g.find_const :Scope
+      g.push_literal o.name
+      g.send :fetch, 1
     end
 
     def visit_Number(o)

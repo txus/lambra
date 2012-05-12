@@ -856,13 +856,13 @@ class Lambra::Parser
     return _tmp
   end
 
-  # word = < /[a-zA-Z_\*][a-zA-Z0-9_\-\*]*/ > { text }
+  # word = < /[a-zA-Z0-9_\-\*\+\-\/]+/ > { text }
   def _word
 
     _save = self.pos
     while true # sequence
       _text_start = self.pos
-      _tmp = scan(/\A(?-mix:[a-zA-Z_\*][a-zA-Z0-9_\-\*]*)/)
+      _tmp = scan(/\A(?-mix:[a-zA-Z0-9_\-\*\+\-\/]+)/)
       if _tmp
         text = get_text(_text_start)
       end
@@ -1641,7 +1641,7 @@ class Lambra::Parser
   Rules[:_true] = rule_info("true", "\"true\" {true_value(current_line, current_column)}")
   Rules[:_false] = rule_info("false", "\"false\" {false_value(current_line, current_column)}")
   Rules[:_nil] = rule_info("nil", "\"nil\" {nil_value(current_line, current_column)}")
-  Rules[:_word] = rule_info("word", "< /[a-zA-Z_\\*][a-zA-Z0-9_\\-\\*]*/ > { text }")
+  Rules[:_word] = rule_info("word", "< /[a-zA-Z0-9_\\-\\*\\+\\-\\/]+/ > { text }")
   Rules[:_symbol] = rule_info("symbol", "word:w {symbol(current_line, current_column, w.to_sym)}")
   Rules[:_keyword] = rule_info("keyword", "\":\" word:w {keyword(current_line, current_column, w.to_sym)}")
   Rules[:_string] = rule_info("string", "\"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(current_line, current_column, text)}")
