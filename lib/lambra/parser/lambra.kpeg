@@ -4,6 +4,7 @@
 %% ast-location = ::Lambra::AST
 %% number       = ast Number(line, column, value)
 %% string_value = ast String(line, column, value)
+%% char_value   = ast Character(line, column, value)
 %% true_value   = ast True(line, column)
 %% false_value  = ast False(line, column)
 %% nil_value    = ast Nil(line, column)
@@ -43,6 +44,12 @@ symbol = word:w ~symbol(current_line, current_column, w.to_sym)
 keyword = ":" word:w ~keyword(current_line, current_column, w.to_sym)
 
 string = '"' < /[^\\"]*/ > '"' ~string_value(current_line, current_column, text)
+character = "\\" word:w ~char_value(current_line, current_column, w.to_sym)
+
+# MACROS
+quote  = "'" word:w ~list(current_line, current_column, [symbol(current_line, current_column, :quote), symbol(current_line, current_column, w.to_sym)])
+
+macro = quote
 
 literal = float
         | integer
@@ -51,10 +58,12 @@ literal = float
         | false
         | nil
         | string
+        | character
         | vector
         | set
         | map
         | symbol
+        | quote
         | keyword
 
 list = "(" expr_list:e ")" ~list(current_line, current_column, e)

@@ -358,6 +358,16 @@ class Lambra::Parser
 
   module ::Lambra::AST
     class Node; end
+    class Character < Node
+      def initialize(line, column, value)
+        @line = line
+        @column = column
+        @value = value
+      end
+      attr_reader :line
+      attr_reader :column
+      attr_reader :value
+    end
     class False < Node
       def initialize(line, column)
         @line = line
@@ -472,6 +482,9 @@ class Lambra::Parser
       attr_reader :column
       attr_reader :elements
     end
+  end
+  def char_value(line, column, value)
+    ::Lambra::AST::Character.new(line, column, value)
   end
   def false_value(line, column)
     ::Lambra::AST::False.new(line, column)
@@ -956,7 +969,70 @@ class Lambra::Parser
     return _tmp
   end
 
-  # literal = (float | integer | hex | true | false | nil | string | vector | set | map | symbol | keyword)
+  # character = "\\" word:w {char_value(current_line, current_column, w.to_sym)}
+  def _character
+
+    _save = self.pos
+    while true # sequence
+      _tmp = match_string("\\")
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      _tmp = apply(:_word)
+      w = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin; char_value(current_line, current_column, w.to_sym); end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_character unless _tmp
+    return _tmp
+  end
+
+  # quote = "'" word:w {list(current_line, current_column, [symbol(current_line, current_column, :quote), symbol(current_line, current_column, w.to_sym)])}
+  def _quote
+
+    _save = self.pos
+    while true # sequence
+      _tmp = match_string("'")
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      _tmp = apply(:_word)
+      w = @result
+      unless _tmp
+        self.pos = _save
+        break
+      end
+      @result = begin; list(current_line, current_column, [symbol(current_line, current_column, :quote), symbol(current_line, current_column, w.to_sym)]); end
+      _tmp = true
+      unless _tmp
+        self.pos = _save
+      end
+      break
+    end # end sequence
+
+    set_failed_rule :_quote unless _tmp
+    return _tmp
+  end
+
+  # macro = quote
+  def _macro
+    _tmp = apply(:_quote)
+    set_failed_rule :_macro unless _tmp
+    return _tmp
+  end
+
+  # literal = (float | integer | hex | true | false | nil | string | character | vector | set | map | symbol | quote | keyword)
   def _literal
 
     _save = self.pos
@@ -982,6 +1058,9 @@ class Lambra::Parser
       _tmp = apply(:_string)
       break if _tmp
       self.pos = _save
+      _tmp = apply(:_character)
+      break if _tmp
+      self.pos = _save
       _tmp = apply(:_vector)
       break if _tmp
       self.pos = _save
@@ -992,6 +1071,9 @@ class Lambra::Parser
       break if _tmp
       self.pos = _save
       _tmp = apply(:_symbol)
+      break if _tmp
+      self.pos = _save
+      _tmp = apply(:_quote)
       break if _tmp
       self.pos = _save
       _tmp = apply(:_keyword)
@@ -1524,7 +1606,10 @@ class Lambra::Parser
   Rules[:_symbol] = rule_info("symbol", "word:w {symbol(current_line, current_column, w.to_sym)}")
   Rules[:_keyword] = rule_info("keyword", "\":\" word:w {keyword(current_line, current_column, w.to_sym)}")
   Rules[:_string] = rule_info("string", "\"\\\"\" < /[^\\\\\"]*/ > \"\\\"\" {string_value(current_line, current_column, text)}")
-  Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | vector | set | map | symbol | keyword)")
+  Rules[:_character] = rule_info("character", "\"\\\\\" word:w {char_value(current_line, current_column, w.to_sym)}")
+  Rules[:_quote] = rule_info("quote", "\"'\" word:w {list(current_line, current_column, [symbol(current_line, current_column, :quote), symbol(current_line, current_column, w.to_sym)])}")
+  Rules[:_macro] = rule_info("macro", "quote")
+  Rules[:_literal] = rule_info("literal", "(float | integer | hex | true | false | nil | string | character | vector | set | map | symbol | quote | keyword)")
   Rules[:_list] = rule_info("list", "(\"(\" expr_list:e \")\" {list(current_line, current_column, e)} | \"(\" \")\" {list(current_line, current_column, [])})")
   Rules[:_vector] = rule_info("vector", "(\"[\" expr_list:e \"]\" {vector(current_line, current_column, e)} | \"[\" \"]\" {vector(current_line, current_column, [])})")
   Rules[:_set] = rule_info("set", "(\"\#{\" expr_list:e \"}\" {set(current_line, current_column, e)} | \"\#{\" \"}\" {set(current_line, current_column, [])})")

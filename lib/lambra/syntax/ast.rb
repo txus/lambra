@@ -24,6 +24,12 @@ module Lambra
       end
     end
 
+    class Character < Node
+      def to_sexp
+        [sexp_name, @value]
+      end
+    end
+
     class Symbol < Node
       def to_sexp
         [sexp_name, @name]

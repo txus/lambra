@@ -55,6 +55,12 @@ describe "The String node" do
     parse { [:string, "hello, world"] }
   end
 end
+
+describe "The Character node" do
+  relates '\space' do
+    parse { [:character, :space] }
+  end
+end
  
 describe "The List node" do
   relates '()' do
@@ -135,5 +141,23 @@ describe "The Set node" do
 
   relates '#{:a :b :c}' do
     parse { [:set, [:keyword, :a], [:keyword, :b], [:keyword, :c]] }
+  end
+end
+
+describe "Macros" do
+  relates "'foo" do
+    parse do
+      [:list,
+        [:symbol, :quote],
+        [:symbol, :foo]]
+    end
+  end
+
+  relates "'foo" do
+    parse do
+      [:list,
+        [:symbol, :quote],
+        [:symbol, :foo]]
+    end
   end
 end
