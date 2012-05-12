@@ -66,7 +66,10 @@ module Lambra
 
     def visit_Keyword(o)
       set_line(o)
+      g.push_cpath_top
+      g.find_const :Keyword
       g.push_literal o.name
+      g.send :new, 1
     end
 
     def visit_Sequence(o)

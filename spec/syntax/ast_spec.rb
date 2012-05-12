@@ -20,6 +20,13 @@ end
 describe "The Keyword node" do
   relates ":hello-world" do
     parse { [:keyword, :"hello-world"] }
+    compile do |g|
+      g.push_cpath_top
+      g.find_const :Keyword
+      g.push_literal :"hello-world"
+      g.send :new, 1
+      g.ret
+    end
   end
 end
 
@@ -214,13 +221,19 @@ describe "The Map node" do
       g.send :new_from_literal, 1
 
       g.dup_top
-      g.push_literal :a
+        g.push_cpath_top
+        g.find_const :Keyword
+        g.push_literal :a
+        g.send :new, 1
       g.push_literal 1
       g.send :[]=, 2
       g.pop
 
       g.dup_top
-      g.push_literal :b
+        g.push_cpath_top
+        g.find_const :Keyword
+        g.push_literal :b
+        g.send :new, 1
       g.push_literal 2
       g.send :[]=, 2
       g.pop
@@ -249,9 +262,22 @@ describe "The Set node" do
     compile do |g|
       g.push_cpath_top
       g.find_const :Set
-      g.push_literal :a
-      g.push_literal :b
-      g.push_literal :c
+
+        g.push_cpath_top
+        g.find_const :Keyword
+        g.push_literal :a
+        g.send :new, 1
+
+        g.push_cpath_top
+        g.find_const :Keyword
+        g.push_literal :b
+        g.send :new, 1
+
+        g.push_cpath_top
+        g.find_const :Keyword
+        g.push_literal :c
+        g.send :new, 1
+
       g.make_array 3
       g.send :new, 1
       g.ret
