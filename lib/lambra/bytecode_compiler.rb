@@ -64,6 +64,11 @@ module Lambra
       g.push_nil
     end
 
+    def visit_Keyword(o)
+      set_line(o)
+      g.push_literal o.name
+    end
+
     def visit_Sequence(o)
       set_line(o)
 
@@ -81,6 +86,32 @@ module Lambra
       end
 
       g.make_array count
+    end
+
+    def visit_Map(o)
+      set_line(o)
+
+      ary   = o.to_a
+      count = ary.size
+      i = 0
+
+      g.push_cpath_top
+      g.find_const :Hash
+      g.push count # / 2
+      g.send :new_from_literal, 1
+
+      while i < count
+        k = ary[i].first
+        v = ary[i].last
+
+        g.dup
+        k.accept(self)
+        v.accept(self)
+        g.send :[]=, 2
+        g.pop
+
+        i += 1
+      end
     end
 
     def finalize

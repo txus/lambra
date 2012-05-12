@@ -8,7 +8,6 @@ class CompileAsMatcher
     visitor = Lambra::BytecodeCompiler.new
     visitor.compile(ast)
 
-
     @actual = visitor.generator
     @expected.literals == @actual.literals &&
       @expected.stream == @actual.stream

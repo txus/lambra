@@ -168,6 +168,15 @@ describe "The Vector node" do
         [:number, 43.0],
         [:string, "hey"]]
     }
+
+    # compile do |g|
+    #   g.push_literal ???
+    #   g.push_literal ???
+    #   g.push_literal 43
+    #   g.push_literal "hey"
+    #   g.make_array 4
+    #   g.ret
+    # end
   end
 
   relates "[hello \n\t (world 43) \"hey\"]" do
@@ -185,10 +194,39 @@ end
 describe "The Map node" do
   relates '{}' do
     parse { [:map] }
+
+    compile do |g|
+      g.push_cpath_top
+      g.find_const :Hash
+      g.meta_push_0
+      g.send :new_from_literal, 1
+      g.ret
+    end
   end
 
   relates '{:a 1 :b 2}' do
     parse { [:map, {[:keyword, :a] => [:number, 1], [:keyword, :b] => [:number, 2]}] }
+
+    compile do |g|
+      g.push_cpath_top
+      g.find_const :Hash
+      g.meta_push_2
+      g.send :new_from_literal, 1
+
+      g.dup_top
+      g.push_literal :a
+      g.push_literal 1
+      g.send :[]=, 2
+      g.pop
+
+      g.dup_top
+      g.push_literal :b
+      g.push_literal 2
+      g.send :[]=, 2
+      g.pop
+
+      g.ret
+    end
   end
 end
 

@@ -70,6 +70,10 @@ module Lambra
 
         [sexp_name, elements]
       end
+
+      def to_a
+        @elements.to_a
+      end
     end
 
     class Set < Node
