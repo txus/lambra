@@ -40,7 +40,7 @@ module Lambra
 
     def self.execute_file(name)
       ast = Lambra::Parser.parse IO.read(name)
-      def ast.filename; name; end
+      ast.define_singleton_method(:filename) { name }
       execute(ast)
     end
   end

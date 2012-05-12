@@ -18,4 +18,11 @@ class Lambra::Parser
 
     parser.result
   end
+
+  def self.parse_file(name)
+    parser = new IO.read(name)
+    unless parser.parse
+      parser.raise_error
+    end
+  end
 end
