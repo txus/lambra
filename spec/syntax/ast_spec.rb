@@ -3,6 +3,11 @@ require 'spec_helper'
 describe "The Comment node" do
   relates ";hello\n()" do
     parse { [:sequence] }
+
+    compile do |g|
+      g.push_nil
+      g.ret
+    end
   end
 end
 
@@ -21,14 +26,29 @@ end
 describe "The Number node" do
   relates "42" do
     parse { [:number, 42] }
+
+    compile do |g|
+      g.push_literal 42
+      g.ret
+    end
   end
 
   relates "1.23" do
     parse { [:number, 1.23] }
+
+    compile do |g|
+      g.push_literal 1.23
+      g.ret
+    end
   end
 
   relates "0x2a" do
     parse { [:number, 42] }
+
+    compile do |g|
+      g.push_literal 42
+      g.ret
+    end
   end
 end
 

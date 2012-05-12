@@ -1,12 +1,13 @@
 module Lambra
   class CodeLoader
     def self.evaluate(string)
-      # We're just parsing for now
-      Lambra::Parser.parse_to_sexp string
+      ast     = Lambra::Parser.parse string
+      visitor = BytecodeCompiler.new
+      cm      = visitor.compile(ast)
     end
 
     def self.execute_file(name)
-      value = Lambra::Parser.parse_to_sexp IO.read(name)
+      value = Lambra::Parser.parse IO.read(name)
       p value
     end
   end

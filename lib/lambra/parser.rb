@@ -9,4 +9,13 @@ class Lambra::Parser
 
     parser.result.to_sexp
   end
+
+  def self.parse(string)
+    parser = new string
+    unless parser.parse
+      parser.raise_error
+    end
+
+    parser.result
+  end
 end

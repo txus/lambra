@@ -1,6 +1,16 @@
 module Lambra
   module AST
+
+    module Visitable
+      def accept(visitor)
+        name = self.class.name.split("::").last
+        visitor.send "visit_#{name}", self
+      end
+    end
+
     class Node
+      include Visitable
+
       attr_reader :line, :column
 
       def sexp_name
