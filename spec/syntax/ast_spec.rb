@@ -55,24 +55,44 @@ end
 describe "The True node" do
   relates "true" do
     parse { [:true] }
+
+    compile do |g|
+      g.push_true
+      g.ret
+    end
   end
 end
 
 describe "The False node" do
   relates "false" do
     parse { [:false] }
+
+    compile do |g|
+      g.push_false
+      g.ret
+    end
   end
 end
 
 describe "The Nil node" do
   relates "nil" do
     parse { [:nil] }
+
+    compile do |g|
+      g.push_nil
+      g.ret
+    end
   end
 end
 
 describe "The String node" do
   relates '"hello, world"' do
     parse { [:string, "hello, world"] }
+
+    compile do |g|
+      g.push_literal "hello, world"
+      g.ret
+    end
   end
 end
 

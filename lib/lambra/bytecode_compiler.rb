@@ -37,6 +37,22 @@ module Lambra
       g.push_literal o.value
     end
 
+    def visit_String(o)
+      g.push_literal o.value
+    end
+
+    def visit_True(o)
+      g.push_true
+    end
+
+    def visit_False(o)
+      g.push_false
+    end
+
+    def visit_Nil(o)
+      g.push_nil
+    end
+
     def visit_Sequence(o)
       o.elements.compact.each do |element|
         element.accept(self)
