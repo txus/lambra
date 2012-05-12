@@ -88,6 +88,21 @@ module Lambra
       g.make_array count
     end
 
+    def visit_Set(o)
+      set_line(o)
+
+      g.push_cpath_top
+      g.find_const :Set
+
+      count = o.elements.count
+      o.elements.each do |elem|
+        elem.accept(self)
+      end
+      g.make_array count
+
+      g.send :new, 1
+    end
+
     def visit_Map(o)
       set_line(o)
 

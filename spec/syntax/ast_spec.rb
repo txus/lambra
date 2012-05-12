@@ -233,10 +233,29 @@ end
 describe "The Set node" do
   relates '#{}' do
     parse { [:set] }
+
+    compile do |g|
+      g.push_cpath_top
+      g.find_const :Set
+      g.make_array 0
+      g.send :new, 1
+      g.ret
+    end
   end
 
   relates '#{:a :b :c}' do
     parse { [:set, [:keyword, :a], [:keyword, :b], [:keyword, :c]] }
+
+    compile do |g|
+      g.push_cpath_top
+      g.find_const :Set
+      g.push_literal :a
+      g.push_literal :b
+      g.push_literal :c
+      g.make_array 3
+      g.send :new, 1
+      g.ret
+    end
   end
 end
 
