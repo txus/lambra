@@ -9,15 +9,15 @@ class Function
   end
 end
 
-class GlobalScope < Hash
+module GlobalScope
   def self.bootstrap
-    scope = new
-    scope[:println] = Function.new { |*args| puts *args }
-    scope[:+]       = Function.new { |*args| args.inject(:+) }
-    scope[:-]       = Function.new { |*args| args.inject(:-) }
-    scope[:/]       = Function.new { |a, b| a / b }
-    scope[:*]       = Function.new { |a, b| a * b }
-    scope
+    {
+      :println => Function.new { |*args| puts *args },
+      :+       => Function.new { |*args| args.inject(:+) },
+      :-       => Function.new { |*args| args.inject(:-) },
+      :/       => Function.new { |a, b| a / b },
+      :*       => Function.new { |a, b| a * b },
+    }
   end
 end
 

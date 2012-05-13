@@ -1,5 +1,6 @@
 require 'custom/runner/relates'
 require 'custom/matchers/parse_as'
 require 'custom/matchers/compile_as'
+require 'custom/matchers/eval_to'
 require 'custom/utils/options'
 require 'custom/utils/script'
