@@ -49,7 +49,7 @@ end
 
 Primitives = PrimitiveScope.new({
   ##
-  # Symbol                 Function body
+  # Symbol                            Function body
   ##
   :println => PrimitiveFunction.new { |*args| puts *args },
   :+       => PrimitiveFunction.new { |*args| args.inject(:+) },

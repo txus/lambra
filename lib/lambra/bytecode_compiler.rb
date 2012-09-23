@@ -69,7 +69,7 @@ module Lambra
       end
 
       if ast.respond_to?(:filename) && ast.filename
-        g.file = ast.filename
+        g.file = ast.filename.to_sym
       else
         g.file = :"(lambra)"
       end
