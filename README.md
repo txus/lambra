@@ -1,4 +1,4 @@
-# lambra
+# lambra [![Build Status](https://secure.travis-ci.org/txus/lambra.png)](http://travis-ci.org/txus/lambra)
 
 Lambra is an experiment to implement Clojure on the
 [Rubinius](http://rubini.us) Virtual Machine.
