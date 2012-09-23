@@ -4,7 +4,7 @@ class ParseAsMatcher
   end
 
   def matches?(actual)
-    @actual = Lambra::Parser.parse_to_sexp actual
+    @actual = Lambra::Parser.parse_to_sexp actual, true
     @actual == @expected
   end
 
