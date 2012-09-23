@@ -11,4 +11,8 @@ describe "Environment bootstrap" do
     '(* 8 4)'.should eval_to 32
     '(/ 8 4)'.should eval_to 2
   end
+
+  it 'defines def' do
+    '(def x 42) x'.should eval_to 42
+  end
 end

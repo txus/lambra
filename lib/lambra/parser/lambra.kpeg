@@ -86,7 +86,7 @@ expr = list
      | literal
 
 many_expr = comment:e many_expr:m { [e] + m }
-          | expr:e many_expr:m { [e] + m }
+          | expr:e sp many_expr:m { [e] + m }
           | expr:e { [e] } 
 
 sequence = many_expr:e { e.size > 1 ? seq(current_line, current_column, e) : e.first }

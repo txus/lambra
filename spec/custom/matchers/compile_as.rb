@@ -22,7 +22,7 @@ class CompileAsMatcher
     actual_stream   = @actual.stream.map(&instruction_to_name)
     expected_stream = @expected.stream.map(&instruction_to_name)
 
-    actual_literals = @actual.literals.map(&:inspect).join(', ')
+    actual_literals   = @actual.literals.map(&:inspect).join(', ')
     expected_literals = @expected.literals.map(&:inspect).join(', ')
 
     ["Expected:\n\t#{actual_stream.join("\n\t")}\nLITERALS: #{actual_literals}\n",

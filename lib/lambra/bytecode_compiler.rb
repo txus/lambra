@@ -3,6 +3,8 @@ module Lambra
     attr_reader :generator
     alias g generator
 
+    SPECIAL_FORMS = %w(def)
+
     def initialize
       @generator = Rubinius::Generator.new
     end
@@ -34,16 +36,32 @@ module Lambra
       return g.push_nil if o.elements.count.zero?
       car = o.elements[0]
       cdr = o.elements[1..-1]
+
+      return visit_SpecialForm(car.name, cdr) if special_form?(car.name)
+
       args = cdr.count
 
       visit_Symbol(car)
 
-      # TODO: lazy evaluation
+      # # TODO: lazy evaluation
       cdr.each do |arg|
         arg.accept(self)
       end
 
       g.send :call, args
+    end
+
+    def visit_SpecialForm(car, cdr)
+      case car.to_s
+      when 'def'
+        name = cdr.shift.name
+
+        g.push_cpath_top
+        g.find_const :Scope
+        g.push_literal name
+        cdr.first.accept(self)
+        g.send :[]=, 2
+      end
     end
 
     def visit_Symbol(o)
@@ -172,6 +190,12 @@ module Lambra
         puts instruct.name
       end
       p '**end**'
+    end
+
+    private
+
+    def special_form?(name)
+      SPECIAL_FORMS.include?(name.to_s)
     end
   end
 end

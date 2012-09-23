@@ -1399,7 +1399,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # many_expr = (comment:e many_expr:m { [e] + m } | expr:e many_expr:m { [e] + m } | expr:e { [e] })
+  # many_expr = (comment:e many_expr:m { [e] + m } | expr:e sp many_expr:m { [e] + m } | expr:e { [e] })
   def _many_expr
 
     _save = self.pos
@@ -1434,6 +1434,11 @@ class Lambra::Parser
       while true # sequence
         _tmp = apply(:_expr)
         e = @result
+        unless _tmp
+          self.pos = _save2
+          break
+        end
+        _tmp = apply(:_sp)
         unless _tmp
           self.pos = _save2
           break
@@ -1655,7 +1660,7 @@ class Lambra::Parser
   Rules[:_set] = rule_info("set", "(\"\#{\" expr_list:e \"}\" {set(current_line, current_column, e)} | \"\#{\" \"}\" {set(current_line, current_column, [])})")
   Rules[:_map] = rule_info("map", "(\"{\" expr_list:e \"}\" {map(current_line, current_column, Hash[*e])} | \"{\" \"}\" {map(current_line, current_column, {})})")
   Rules[:_expr] = rule_info("expr", "(list | literal)")
-  Rules[:_many_expr] = rule_info("many_expr", "(comment:e many_expr:m { [e] + m } | expr:e many_expr:m { [e] + m } | expr:e { [e] })")
+  Rules[:_many_expr] = rule_info("many_expr", "(comment:e many_expr:m { [e] + m } | expr:e sp many_expr:m { [e] + m } | expr:e { [e] })")
   Rules[:_sequence] = rule_info("sequence", "many_expr:e { e.size > 1 ? seq(current_line, current_column, e) : e.first }")
   Rules[:_expr_list_b] = rule_info("expr_list_b", "(expr:e br-sp expr_list_b:l { [e] + l } | expr:e { [e] })")
   Rules[:_expr_list] = rule_info("expr_list", "br-sp expr_list_b:b br-sp { b }")

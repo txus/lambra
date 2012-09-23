@@ -4,24 +4,26 @@ class Function
   def initialize(&block)
     @block = block
   end
+
   def call(*args)
     @block.call(*args)
   end
 end
 
 module GlobalScope
-  def self.bootstrap
-    {
+  Bootstrap = {
+      ##
+      # Symbol                 Function body
+      ##
       :println => Function.new { |*args| puts *args },
       :+       => Function.new { |*args| args.inject(:+) },
       :-       => Function.new { |*args| args.inject(:-) },
       :/       => Function.new { |a, b| a / b },
       :*       => Function.new { |a, b| a * b },
     }
-  end
 end
 
-Scope = GlobalScope.bootstrap
+Scope = GlobalScope::Bootstrap
 
 class Keyword
   def initialize(name)
