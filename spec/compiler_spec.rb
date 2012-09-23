@@ -15,4 +15,8 @@ describe "Environment bootstrap" do
   it 'defines def' do
     '(def x 42) x'.should eval_to 42
   end
+
+  it 'defines fn' do
+    '((fn [x] (* x x)) 3)'.should eval_to 9
+  end
 end

@@ -1,12 +1,65 @@
 module Lambra
   class BytecodeCompiler
-    attr_reader :generator
+    class Scope
+      attr_reader :variables, :generator
+      alias g generator
+
+      def initialize(generator, parent=nil)
+        @parent    = parent
+        @variables = []
+        @generator = generator
+      end
+
+      def slot_for(name)
+        if existing = @variables.index(name)
+          existing
+        else
+          @variables << name
+          @variables.size - 1
+        end
+      end
+
+      def push_variable(name, current_depth = 0, g = self.g)
+        if existing = @variables.index(name)
+          if current_depth.zero?
+            g.push_local existing
+          else
+            g.push_local_depth current_depth, existing
+          end
+        else
+          @parent.push_variable(name, current_depth + 1, g)
+        end
+      end
+
+      def set_variable(name, current_depth = 0, g = self.g)
+        if existing = @variables.index(name)
+          if current_depth.zero?
+            g.set_local existing
+          else
+            g.set_local_depth current_depth, existing
+          end
+        else
+          @parent.set_variable(name, current_depth + 1, g)
+        end
+      end
+
+      def set_local(name)
+        slot = slot_for(name)
+        g.set_local slot
+      end
+    end
+
+    attr_reader :generator, :scope
     alias g generator
+    alias s scope
 
-    SPECIAL_FORMS = %w(def)
+    SPECIAL_FORMS = %w(def fn)
+    PRIMITIVE_FORMS = %w(println + - / *)
 
-    def initialize
+    def initialize(parent=nil)
       @generator = Rubinius::Generator.new
+      parent_scope = parent ? parent.scope : nil
+      @scope = Scope.new(@generator, parent_scope)
     end
 
     def compile(ast, debugging=false)
@@ -37,13 +90,13 @@ module Lambra
       car = o.elements[0]
       cdr = o.elements[1..-1]
 
-      return visit_SpecialForm(car.name, cdr) if special_form?(car.name)
+      return visit_SpecialForm(car.name, cdr) if car.respond_to?(:name) && special_form?(car.name)
+      return visit_PrimitiveForm(car.name, cdr) if car.respond_to?(:name) && primitive_form?(car.name)
 
       args = cdr.count
 
-      visit_Symbol(car)
+      car.accept(self)
 
-      # # TODO: lazy evaluation
       cdr.each do |arg|
         arg.accept(self)
       end
@@ -56,20 +109,61 @@ module Lambra
       when 'def'
         name = cdr.shift.name
 
-        g.push_cpath_top
-        g.find_const :Scope
-        g.push_literal name
         cdr.first.accept(self)
-        g.send :[]=, 2
+        s.set_local name
+      when 'fn'
+        args = cdr.shift # a Vector
+        argcount = args.elements.size
+
+        # Get a new compiler
+        block = BytecodeCompiler.new(self)
+
+        # Configures the new generator
+        # TODO Move this to a method on the compiler
+        block.generator.for_block = true
+        block.generator.total_args = argcount
+        block.generator.required_args = argcount
+        block.generator.post_args = argcount
+        block.generator.cast_for_multi_block_arg unless argcount.zero?
+        block.generator.set_line args.line
+
+        block.visit_arguments(args.elements)
+        cdr.shift.accept(block)
+        block.generator.ret
+
+        g.push_const :Function
+        # Invoke the create block instruction
+        # with the generator of the block compiler
+        g.create_block block.finalize
+        g.send :new, 1
       end
+    end
+
+    def visit_PrimitiveForm(car, cdr)
+      g.push_cpath_top
+      g.find_const :Primitives
+      g.push_literal car
+      g.send :get, 1
+
+      cdr.each do |arg|
+        arg.accept(self)
+      end
+
+      g.send :call, cdr.count
+    end
+
+    def visit_arguments(args)
+      args.each_with_index do |a, i|
+        g.shift_array
+        s.set_local a.name
+        g.pop
+      end
+      g.pop unless args.empty?
     end
 
     def visit_Symbol(o)
       set_line(o)
-      g.push_cpath_top
-      g.find_const :Scope
-      g.push_literal o.name
-      g.send :fetch, 1
+      s.push_variable o.name
     end
 
     def visit_Number(o)
@@ -171,8 +265,8 @@ module Lambra
     end
 
     def finalize
-      # g.local_names = s.variables
-      # g.local_count = s.variables.size
+      g.local_names = s.variables
+      g.local_count = s.variables.size
       g.close
       g
     end
@@ -196,6 +290,10 @@ module Lambra
 
     def special_form?(name)
       SPECIAL_FORMS.include?(name.to_s)
+    end
+
+    def primitive_form?(name)
+      PRIMITIVE_FORMS.include?(name.to_s)
     end
   end
 end

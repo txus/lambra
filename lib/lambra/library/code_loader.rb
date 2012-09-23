@@ -13,7 +13,7 @@ module Lambra
 
       require_relative '../bootstrap'
 
-      env = Scope
+      env = GlobalScope
 
       file = if ast.respond_to?(:filename) && ast.filename
         ast.filename
