@@ -122,5 +122,20 @@ module Lambra
         @arguments.count
       end
     end
+
+    class LetArguments < Node
+      attr_reader :arguments, :values
+      def initialize(line, column, vector)
+        @line = line
+        @column = column
+        @bindings = vector.elements.each_slice(2)
+        @arguments = @bindings.map(&:first)
+        @values = @bindings.map(&:last)
+      end
+
+      def count
+        @arguments.count
+      end
+    end
   end
 end
