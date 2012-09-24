@@ -1,65 +1,65 @@
 module Lambra
   class BytecodeCompiler
-    class Scope
-      attr_reader :variables, :generator
-      alias g generator
+    # class Scope
+    #   attr_reader :variables, :generator
+    #   alias g generator
 
-      def initialize(generator, parent=nil)
-        @parent    = parent
-        @variables = []
-        @generator = generator
-      end
+    #   def initialize(generator, parent=nil)
+    #     @parent    = parent
+    #     @variables = []
+    #     @generator = generator
+    #   end
 
-      def slot_for(name)
-        if existing = @variables.index(name)
-          existing
-        else
-          @variables << name
-          @variables.size - 1
-        end
-      end
+    #   def slot_for(name)
+    #     if existing = @variables.index(name)
+    #       existing
+    #     else
+    #       @variables << name
+    #       @variables.size - 1
+    #     end
+    #   end
 
-      def push_variable(name, current_depth = 0, g = self.g)
-        if existing = @variables.index(name)
-          if current_depth.zero?
-            g.push_local existing
-          else
-            g.push_local_depth current_depth, existing
-          end
-        else
-          @parent.push_variable(name, current_depth + 1, g)
-        end
-      end
+    #   def push_variable(name, current_depth = 0, g = self.g)
+    #     if existing = @variables.index(name)
+    #       if current_depth.zero?
+    #         g.push_local existing
+    #       else
+    #         g.push_local_depth current_depth, existing
+    #       end
+    #     else
+    #       @parent.push_variable(name, current_depth + 1, g)
+    #     end
+    #   end
 
-      def set_variable(name, current_depth = 0, g = self.g)
-        if existing = @variables.index(name)
-          if current_depth.zero?
-            g.set_local existing
-          else
-            g.set_local_depth current_depth, existing
-          end
-        else
-          @parent.set_variable(name, current_depth + 1, g)
-        end
-      end
+    #   def set_variable(name, current_depth = 0, g = self.g)
+    #     if existing = @variables.index(name)
+    #       if current_depth.zero?
+    #         g.set_local existing
+    #       else
+    #         g.set_local_depth current_depth, existing
+    #       end
+    #     else
+    #       @parent.set_variable(name, current_depth + 1, g)
+    #     end
+    #   end
 
-      def set_local(name)
-        slot = slot_for(name)
-        g.set_local slot
-      end
-    end
+    #   def set_local(name)
+    #     slot = slot_for(name)
+    #     g.set_local slot
+    #   end
+    # end
 
-    attr_reader :generator, :scope
+    attr_reader :generator #, :scope
     alias g generator
-    alias s scope
+    # alias s scope
 
     SPECIAL_FORMS = %w(def fn)
     PRIMITIVE_FORMS = %w(println + - / *)
 
-    def initialize(parent=nil)
-      @generator = Rubinius::Generator.new
-      parent_scope = parent ? parent.scope : nil
-      @scope = Scope.new(@generator, parent_scope)
+    def initialize(generator=nil)
+      @generator = generator || Rubinius::Generator.new
+      # parent_scope = parent ? parent.scope : nil
+      # @scope = Scope.new(@generator, parent_scope)
     end
 
     def compile(ast, debugging=false)
@@ -74,7 +74,10 @@ module Lambra
         g.file = :"(lambra)"
       end
 
-      g.set_line ast.line || 1
+      line = ast.line || 1
+      g.set_line line
+
+      g.push_state Rubinius::AST::ClosedScope.new(line)
 
       ast.accept(self)
 
@@ -110,33 +113,52 @@ module Lambra
         name = cdr.shift.name
 
         cdr.first.accept(self)
-        s.set_local name
+        
+        local = g.state.scope.new_local(name)
+        g.set_local local.slot
       when 'fn'
-        args = cdr.shift # a Vector
-        argcount = args.elements.size
+        args_vector = cdr.shift
+        arguments = Lambra::AST::ClosureArguments.new(args_vector.line, args_vector.column, args_vector)
+        closure = Lambra::AST::Closure.new(arguments.line, arguments.column, arguments, cdr.shift)
 
-        # Get a new compiler
-        block = BytecodeCompiler.new(self)
-
-        # Configures the new generator
-        # TODO Move this to a method on the compiler
-        block.generator.for_block = true
-        block.generator.total_args = argcount
-        block.generator.required_args = argcount
-        block.generator.post_args = argcount
-        block.generator.cast_for_multi_block_arg unless argcount.zero?
-        block.generator.set_line args.line
-
-        block.visit_arguments(args.elements)
-        cdr.shift.accept(block)
-        block.generator.ret
-
-        g.push_const :Function
-        # Invoke the create block instruction
-        # with the generator of the block compiler
-        g.create_block block.finalize
-        g.send :new, 1
+        closure.accept(self)
       end
+    end
+
+    def visit_Closure(o)
+      set_line(o)
+
+      state = g.state
+      state.scope.nest_scope o
+
+      blk_compiler = BytecodeCompiler.new(new_block_generator g, o.arguments)
+      blk = blk_compiler.generator
+
+      blk.push_state o
+      blk.state.push_super state.super
+      blk.state.push_eval state.eval
+
+      blk.state.push_name blk.name
+
+      o.arguments.accept(blk_compiler)
+      blk.state.push_block
+      o.body.accept(blk_compiler)
+      blk.state.pop_block
+      blk.ret
+      blk_compiler.finalize
+
+      g.create_block blk
+    end
+
+    def visit_ClosureArguments(o)
+      args = o.arguments
+      args.each_with_index do |a, i|
+        g.shift_array
+        local = g.state.scope.new_local(a.name)
+        g.set_local local.slot
+        g.pop
+      end
+      g.pop unless args.empty?
     end
 
     def visit_PrimitiveForm(car, cdr)
@@ -152,18 +174,10 @@ module Lambra
       g.send :call, cdr.count
     end
 
-    def visit_arguments(args)
-      args.each_with_index do |a, i|
-        g.shift_array
-        s.set_local a.name
-        g.pop
-      end
-      g.pop unless args.empty?
-    end
-
     def visit_Symbol(o)
       set_line(o)
-      s.push_variable o.name
+      local = g.state.scope.search_local(o.name)
+      local.get_bytecode(g)
     end
 
     def visit_Number(o)
@@ -265,8 +279,9 @@ module Lambra
     end
 
     def finalize
-      g.local_names = s.variables
-      g.local_count = s.variables.size
+      g.local_names = g.state.scope.local_names
+      g.local_count = g.state.scope.local_count
+      g.pop_state
       g.close
       g
     end
@@ -294,6 +309,20 @@ module Lambra
 
     def primitive_form?(name)
       PRIMITIVE_FORMS.include?(name.to_s)
+    end
+
+    def new_block_generator(g, arguments)
+      blk = g.class.new
+      blk.name = g.state.name || :__block__
+      blk.file = g.file
+      blk.for_block = true
+
+      blk.required_args = arguments.count
+      blk.post_args = arguments.count
+      blk.total_args = arguments.count
+      blk.cast_for_multi_block_arg unless arguments.count.zero?
+
+      blk
     end
   end
 end

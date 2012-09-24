@@ -16,7 +16,13 @@ describe "Environment bootstrap" do
     '(def x 42) x'.should eval_to 42
   end
 
-  it 'defines fn' do
-    '((fn [x] (* x x)) 3)'.should eval_to 9
+  describe '#fn' do
+    it 'simply works' do
+      '((fn [x] (* x x)) 3)'.should eval_to 9
+    end
+
+    it 'works with proper closure scope' do
+      '(def y 2) ((fn [x] (* y x)) 3)'.should eval_to 6
+    end
   end
 end
