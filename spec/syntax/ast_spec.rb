@@ -2,7 +2,7 @@ require 'spec_helper'
 
 describe "The Comment node" do
   relates ";hello\n()" do
-    parse { [:sequence] }
+    parse { [[:list]] }
 
     compile do |g|
       g.push_nil

@@ -85,7 +85,7 @@ module Lambra
 
     class Sequence < Node
       def to_sexp
-        @elements.map(&:to_sexp)
+        @elements.compact.map(&:to_sexp)
       end
     end
 
