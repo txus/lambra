@@ -10,20 +10,20 @@ class PrimitiveFunction
   end
 end
 
-class Function
-  def initialize(blk_env)
-    @block_environment = blk_env
-    @executable = blk_env.compiled_code
-  end
-
-  def call(*args)
-    @executable.invoke(:anonymous, @executable.scope.module, Object.new, args, nil)
-  end
-
-  def to_proc
-    Proc.__from_block__(@block_environment)
-  end
-end
+# class Function
+#   def initialize(blk_env)
+#     @block_environment = blk_env
+#     @executable = blk_env.compiled_code
+#   end
+# 
+#   def call(*args)
+#     @executable.invoke(:anonymous, @executable.scope.module, Object.new, args, nil)
+#   end
+# 
+#   def to_proc
+#     Proc.__from_block__(@block_environment)
+#   end
+# end
 
 class PrimitiveScope
   def initialize(bindings, parent=nil)

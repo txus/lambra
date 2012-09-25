@@ -8,8 +8,6 @@ module Lambra
 
     def initialize(generator=nil)
       @generator = generator || Rubinius::Generator.new
-      # parent_scope = parent ? parent.scope : nil
-      # @scope = Scope.new(@generator, parent_scope)
     end
 
     def compile(ast, debugging=false)
@@ -63,7 +61,7 @@ module Lambra
         name = cdr.shift.name
 
         cdr.first.accept(self)
-        
+
         local = g.state.scope.new_local(name)
         g.set_local local.slot
       when 'fn'
