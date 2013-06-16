@@ -29,12 +29,9 @@ module Lambra
       script   = Rubinius::CompiledMethod::Script.new(cm, file, true)
       be       = Rubinius::BlockEnvironment.new
 
-      script.eval_binding = binding
-      # script.eval_source  = string
       cm.scope.script     = script
 
       be.under_context(binding.variables, cm)
-      be.from_eval!
       be.call_on_instance(instance)
     end
 
