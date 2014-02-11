@@ -9,9 +9,9 @@ Gem::Specification.new do |s|
   s.authors     = ["Josep M. Bach"]
   s.email       = ["josep.m.bach@gmail.com"]
   s.homepage    = "https://github.com/txus/lambra"
-  s.summary     = %q{An exploratory implementation of Clojure on the Rubinius VM}
+  s.summary     = %q{An exploratory implementation of a functional, distributed Lisp on the Rubinius VM}
   s.description =<<-EOD
-Lambra is an experiment to implement Clojure (http://clojure.org) on the
+Lambra is an experiment to implement a functional, distributed Lisp on the
 Rubinius VM (http://rubini.us).
   EOD
 

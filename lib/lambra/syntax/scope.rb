@@ -4,7 +4,7 @@ module Lambra
       attr_accessor :parent
 
       def self.included(base)
-        base.send :include, Rubinius::Compiler::LocalVariables
+        base.send :include, RBX::Compiler::LocalVariables
       end
 
       def nest_scope(scope)
@@ -33,7 +33,7 @@ module Lambra
       end
 
       def new_local(name)
-        variable = Rubinius::Compiler::LocalVariable.new allocate_slot
+        variable = RBX::Compiler::LocalVariable.new allocate_slot
         variables[name] = variable
       end
 

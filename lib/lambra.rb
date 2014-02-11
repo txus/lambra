@@ -1,3 +1,5 @@
+RBX = Rubinius::ToolSet.current::TS
+
 require 'lambra/version'
 require 'lambra/syntax'
 require 'lambra/parser'

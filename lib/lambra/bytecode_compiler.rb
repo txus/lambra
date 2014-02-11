@@ -7,7 +7,7 @@ module Lambra
     PRIMITIVE_FORMS = %w(println + - / *)
 
     def initialize(generator=nil)
-      @generator = generator || Rubinius::Generator.new
+      @generator = generator || RBX::Generator.new
     end
 
     def compile(ast, debugging=false)
@@ -25,7 +25,7 @@ module Lambra
       line = ast.line || 1
       g.set_line line
 
-      g.push_state Rubinius::AST::ClosedScope.new(line)
+      g.push_state RBX::AST::ClosedScope.new(line)
 
       ast.accept(self)
 
@@ -256,7 +256,7 @@ module Lambra
       p '*****'
       ip = 0
       while instruction = gen.stream[ip]
-        instruct = Rubinius::InstructionSet[instruction]
+        instruct = RBX::InstructionSet[instruction]
         ip += instruct.size
         puts instruct.name
       end

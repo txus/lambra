@@ -9,7 +9,7 @@ module Lambra
       visitor = BytecodeCompiler.new
       gen     = visitor.compile(ast)
       gen.encode
-      cm = gen.package Rubinius::CompiledMethod
+      cm = gen.package Rubinius::CompiledCode
 
       require_relative '../bootstrap'
 
@@ -24,9 +24,9 @@ module Lambra
       line, binding, instance = ast.line, env.send(:binding), env
 
       # cm       = Noscript::Compiler.compile_eval(code, binding.variables, file, line)
-      cm.scope = Rubinius::StaticScope.new(GlobalScope)
+      cm.scope = Rubinius::ConstantScope.new(GlobalScope)
       cm.name  = :__lambra__
-      script   = Rubinius::CompiledMethod::Script.new(cm, file, true)
+      script   = Rubinius::CompiledCode::Script.new(cm, file, true)
       be       = Rubinius::BlockEnvironment.new
 
       cm.scope.script     = script
