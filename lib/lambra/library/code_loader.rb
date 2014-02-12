@@ -1,3 +1,5 @@
+require_relative '../bootstrap'
+
 module Lambra
   class CodeLoader
     def self.evaluate(string)
@@ -10,8 +12,6 @@ module Lambra
       gen     = visitor.compile(ast)
       gen.encode
       cm = gen.package Rubinius::CompiledCode
-
-      require_relative '../bootstrap'
 
       env = GlobalScope
 

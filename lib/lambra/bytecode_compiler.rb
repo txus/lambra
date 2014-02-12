@@ -3,7 +3,7 @@ module Lambra
     attr_reader :generator
     alias g generator
 
-    SPECIAL_FORMS = %w(def fn let)
+    SPECIAL_FORMS = %w(def fn let spawn)
     PRIMITIVE_FORMS = %w(println + - / *)
 
     def initialize(generator=nil)
@@ -82,6 +82,15 @@ module Lambra
         end
 
         g.send :call, arguments.count
+      when 'spawn'
+        g.push_cpath_top
+        g.find_const :Lambra
+        g.find_const :Process
+
+        fn = cdr.shift
+        fn.accept(self)
+
+        g.send_with_block :spawn, 0
       end
     end
 

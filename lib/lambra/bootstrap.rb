@@ -1,4 +1,5 @@
 require 'set'
+require 'thread'
 
 class PrimitiveFunction
   def initialize(&block)
@@ -15,11 +16,11 @@ end
 #     @block_environment = blk_env
 #     @executable = blk_env.compiled_code
 #   end
-# 
+#
 #   def call(*args)
 #     @executable.invoke(:anonymous, @executable.scope.module, Object.new, args, nil)
 #   end
-# 
+#
 #   def to_proc
 #     Proc.__from_block__(@block_environment)
 #   end
@@ -56,6 +57,7 @@ Primitives = PrimitiveScope.new({
   :-       => PrimitiveFunction.new { |*args| args.inject(:-) },
   :/       => PrimitiveFunction.new { |a, b| a / b },
   :*       => PrimitiveFunction.new { |a, b| a * b },
+  :send    => PrimitiveFunction.new { |pid, *args| Process[pid].push(*args) }
 })
 
 class Keyword
