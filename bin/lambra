@@ -106,6 +106,8 @@ class Lambra::Script
     load_history
     start_prompt
 
+    env = Object.new
+
     begin
       snippet = ""
       while str = Readline.readline(prompt)
@@ -114,14 +116,15 @@ class Lambra::Script
 
         snippet << str
         begin
-          value = Lambra::CodeLoader.evaluate snippet
+          value = Lambra::CodeLoader.evaluate snippet, env
           p value
 
           record_history snippet
           snippet = ""
           start_prompt
         rescue => e
-          STDERR.puts e
+          snippet = ""
+          STDERR.puts "Error: #{e}"
         end
       end
     ensure

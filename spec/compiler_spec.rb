@@ -16,7 +16,7 @@ describe "Environment bootstrap" do
     '(def x 42) x'.should eval_to 42
   end
 
-  describe '#fn' do
+  describe 'fn' do
     it 'simply works' do
       '((fn [x] (* x x)) 3)'.should eval_to 9
     end
@@ -26,9 +26,15 @@ describe "Environment bootstrap" do
     end
   end
 
-  describe '#let' do
+  describe 'let' do
     it 'simply works' do
       '(let [x 2 y 3] (* x y))'.should eval_to 6
+    end
+  end
+
+  describe 'spawn' do
+    it 'spawns a new process' do
+      '(spawn (fn [] (sleep 10)))'.should eval_to(Lambra::Process.pids)
     end
   end
 end

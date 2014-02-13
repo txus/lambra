@@ -10,6 +10,10 @@ module Lambra
   class Process
     @processes = {}
 
+    def self.pids
+      @processes.keys
+    end
+
     def self.[](pid)
       @processes[pid]
     end
@@ -18,13 +22,18 @@ module Lambra
       @processes[pid] = process
     end
 
+    def self.count
+      @processes.count
+    end
+
     def self.spawn(&fn)
-      Thread.new do
+      Thread.new {
         new(&fn).tap { |process|
-          self[Thread.current.object_id] = process
+          pid = Thread.current.object_id
+          self[pid] = process
           Thread.current[:process] = process
         }.call
-      end
+      }.object_id
     end
 
     def initialize(&fn)

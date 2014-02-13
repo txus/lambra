@@ -2,18 +2,17 @@ require_relative '../bootstrap'
 
 module Lambra
   class CodeLoader
-    def self.evaluate(string)
+    def self.evaluate(string, env=GlobalScope)
       ast = Lambra::Parser.parse string
-      execute(ast)
+      execute(ast, env)
     end
 
-    def self.execute(ast)
+    def self.execute(ast, env=GlobalScope)
+      binding = env.send(:binding)
       visitor = BytecodeCompiler.new
-      gen     = visitor.compile(ast)
+      gen     = visitor.compile(ast, binding.variables)
       gen.encode
       cm = gen.package Rubinius::CompiledCode
-
-      env = GlobalScope
 
       file = if ast.respond_to?(:filename) && ast.filename
         ast.filename
@@ -21,7 +20,7 @@ module Lambra
         '(eval)'
       end
 
-      line, binding, instance = ast.line, env.send(:binding), env
+      line, binding, instance = ast.line, binding, env
 
       # cm       = Noscript::Compiler.compile_eval(code, binding.variables, file, line)
       cm.scope = Rubinius::ConstantScope.new(GlobalScope)

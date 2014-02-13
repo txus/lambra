@@ -4,13 +4,13 @@ module Lambra
     alias g generator
 
     SPECIAL_FORMS = %w(def fn let spawn)
-    PRIMITIVE_FORMS = %w(println + - / *)
+    PRIMITIVE_FORMS = %w(println + - / * send sleep)
 
     def initialize(generator=nil)
       @generator = generator || RBX::Generator.new
     end
 
-    def compile(ast, debugging=false)
+    def compile(ast, variables=nil, debugging=false)
       if debugging
         require 'pp'
         pp ast.to_sexp
@@ -25,7 +25,11 @@ module Lambra
       line = ast.line || 1
       g.set_line line
 
-      g.push_state RBX::AST::ClosedScope.new(line)
+      if variables
+        g.push_state variables
+      else
+        g.push_state RBX::AST::ClosedScope.new(line)
+      end
 
       ast.accept(self)
 
@@ -148,7 +152,11 @@ module Lambra
     def visit_Symbol(o)
       set_line(o)
       local = g.state.scope.search_local(o.name)
-      local.get_bytecode(g)
+      if local
+        local.get_bytecode(g)
+      else
+        raise "unbound symbol #{o.name}"
+      end
     end
 
     def visit_Number(o)
