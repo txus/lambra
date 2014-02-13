@@ -31,4 +31,10 @@ describe "Environment bootstrap" do
       '(let [x 2 y 3] (* x y))'.should eval_to 6
     end
   end
+
+  describe 'spawn' do
+    it 'spawns a new process' do
+      '(spawn (fn [] (sleep 10)))'.should eval_to_kind_of(Integer)
+    end
+  end
 end
