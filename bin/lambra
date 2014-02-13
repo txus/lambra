@@ -1,143 +1,76 @@
 #!/usr/bin/env rbx
-#
-# vim: filetype=ruby
 
-$:.unshift File.expand_path('../../lib', __FILE__)
+file = __FILE__
+file = File.readlink(file) while File.symlink? file
+$LOAD_PATH.unshift(File.expand_path('../../lib', file))
 
-require 'readline'
 require 'lambra'
 
-class Lambra::Script
-  HISTORY = File.expand_path "~/.lambra_history"
+evals    = []
+settings = Hash.new { |h,k| h[k] = false }
+options  = Rubinius::Options.new "Usage: #$0 [options] [script]", 20
 
-  attr_accessor :prompt
+options.on( "-A", "Print the AST"          ) { settings[:ast]  = true }
+options.on( "-B", "Print the bytecode"     ) { settings[:bc]   = true }
 
-  def initialize
-    @evals = []
-    @script = nil
-    @history = []
-  end
+options.on "-e", "CODE", "Execute CODE" do |e|
+  evals << ['(eval)', e]
+end
 
-  def options(argv=ARGV)
-    options = Rubinius::Options.new "Usage: lambra [options] [script]", 20
+options.on "-v", "--version", "Show version" do
+  puts "Lambra #{Lambra::VERSION}"
+  exit 0
+end
 
-    options.on "-", "Read and evaluate code from STDIN" do
-      @evals << STDIN.read
+options.on "-h", "--help", "Display this help" do
+  puts options
+  exit 0
+end
+
+info = proc do |cond, name, &block|
+  next unless settings[cond]
+  puts '', " #{name} ".center(80, "=")
+  block[]
+  puts "-" * 80, ''
+end
+
+display = proc do |file, code, ev=true, binding=nil|
+  begin
+    if settings[:ast]
+      ast = Lambra::Parser.parse_file(file)
+      info.call(:ast, 'AST') { Rubinius::AST::AsciiGrapher.new(ast).print }
     end
 
-    options.on "-c", "FILE", "Check the syntax of FILE" do |f|
-      begin
-        begin
-          Lambra::Parser.parse_file f
-        rescue => e
-          e.render
-          exit 1
-        end
-
-        puts "Syntax OK"
-        exit 0
-      end
-    end
-
-    options.on "-e", "CODE", "Execute CODE" do |e|
-      @evals << e
-    end
-
-    options.on "-v", "--version", "Display the version" do
-      puts Lambra::COMMAND_VERSION
-    end
-
-    options.on "-h", "--help", "Display this help" do
-      puts options
-      exit 0
-    end
-
-    options.doc ""
-
-    rest = options.parse(argv)
-    @script ||= rest.first
-  end
-
-  def evals
-    return if @evals.empty?
-
-    Lambra::CodeLoader.evaluate @evals.join("\n")
-  end
-
-  def script
-    return unless @script
-
-    if File.exists? @script
-      Lambra::CodeLoader.execute_file @script
+    info.call(:bc, "Bytecode") { puts Lambra::Compiler.compile_string(code, file).decode }
+    if ev
+      puts "=> %p" % Lambra::Compiler.eval(code, file, binding)
     else
-      STDERR.puts "Unable to find '#{@script}' to run"
-      exit 1
+      Lambra::Compiler.eval(code, file, binding)
     end
-  end
 
-  def load_history
-    return unless File.exists? HISTORY
-
-    File.open HISTORY, "r" do |f|
-      f.each { |l| Readline::HISTORY << l }
-    end
-  end
-
-  def save_history
-    File.open HISTORY, "w" do |f|
-      @history.last(100).map { |s| f.puts s }
-    end
-  end
-
-  def record_history(str)
-    @history << str
-  end
-
-  def start_prompt
-    @prompt = "> "
-  end
-
-  def continue_prompt
-    @prompt = ". "
-  end
-
-  def repl
-    return if @script
-    load_history
-    start_prompt
-
-    env = Object.new
-
-    begin
-      snippet = ""
-      while str = Readline.readline(prompt)
-        break if str.nil? and snippet.empty?
-        next if str.empty?
-
-        snippet << str
-        begin
-          value = Lambra::CodeLoader.evaluate snippet, env
-          p value
-
-          record_history snippet
-          snippet = ""
-          start_prompt
-        rescue => e
-          snippet = ""
-          STDERR.puts "Error: #{e}"
-        end
-      end
-    ensure
-      save_history
-    end
-  end
-
-  def main
-    options
-    evals
-    script
-    repl
+  rescue Exception => e
+    e.render
   end
 end
 
-Lambra::Script.new.main
+options.parse(ARGV).each do |file|
+  evals << [file, File.read(file), false]
+end
+
+if evals.empty?
+  if $stdin.tty?
+    require 'readline'
+    binding = Object.send(:binding)
+    loop do
+      code = Readline.readline "lm> "
+      exit 0 unless code and code != "exit"
+      display['(repl)', code, true, binding]
+    end
+  else
+    evals << ['(stdin)', STDIN.read]
+  end
+end
+
+evals.each(&display)
+
+

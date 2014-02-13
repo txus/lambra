@@ -58,7 +58,7 @@ Primitives = PrimitiveScope.new({
   :/       => PrimitiveFunction.new { |a, b| a / b },
   :*       => PrimitiveFunction.new { |a, b| a * b },
   :send    => PrimitiveFunction.new { |pid, *args| Process[pid].push(*args) },
-  :sleep   => PrimitiveFunction.new { |seconds| sleep(seconds) }
+  :sleep   => PrimitiveFunction.new { |seconds| sleep(seconds); nil }
 })
 
 class Keyword

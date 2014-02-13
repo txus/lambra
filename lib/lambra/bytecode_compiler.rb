@@ -39,6 +39,10 @@ module Lambra
       finalize
     end
 
+    def visit_EvalExpression(o)
+      o.body.accept(self)
+    end
+
     def visit_List(o)
       set_line(o)
       return g.push_nil if o.elements.count.zero?

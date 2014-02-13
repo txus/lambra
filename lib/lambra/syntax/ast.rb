@@ -61,7 +61,7 @@ module Lambra
 
     class List < Node
       def to_sexp
-        [sexp_name, 
+        [sexp_name,
           *@elements.map(&:to_sexp)]
       end
     end
@@ -85,14 +85,14 @@ module Lambra
 
     class Set < Node
       def to_sexp
-        [sexp_name, 
+        [sexp_name,
           *@elements.map(&:to_sexp)]
       end
     end
 
     class Vector < Node
       def to_sexp
-        [sexp_name, 
+        [sexp_name,
           *@elements.map(&:to_sexp)]
       end
     end
@@ -139,3 +139,5 @@ module Lambra
     end
   end
 end
+
+RBX::AST::Node.send :include, Lambra::AST::Visitable

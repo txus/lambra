@@ -4,7 +4,7 @@ class EvalToMatcher
   end
 
   def matches?(actual)
-    @actual = Lambra::CodeLoader.evaluate actual
+    @actual = Lambra::Compiler.eval actual
     @actual == @expected
   end
 
@@ -20,7 +20,7 @@ class EvalToKindOfMatcher
   end
 
   def matches?(actual)
-    @actual = Lambra::CodeLoader.evaluate actual
+    @actual = Lambra::Compiler.eval actual
     @actual.is_a?(@expected)
   end
 
