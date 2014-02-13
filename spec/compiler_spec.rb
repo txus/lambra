@@ -37,4 +37,22 @@ describe "Environment bootstrap" do
       '(spawn (fn [] (sleep 10)))'.should eval_to_kind_of(Integer)
     end
   end
+
+  describe 'self' do
+    it 'is bound to the current process pid' do
+      'self'.should eval_to_kind_of(Integer)
+    end
+  end
+
+  describe 'receive' do
+    it 'blocks until a new message arrives' do
+      %Q{
+        (let [echo (spawn
+                     (fn []
+                       (receive [pid msg] (send pid self msg))))]
+          (send echo self "hello world"))
+        (receive [pid msg] msg)
+      }.should eval_to "hello world"
+    end
+  end
 end

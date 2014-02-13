@@ -1,0 +1,6 @@
+(let [echo (spawn
+             (fn []
+               (receive [pid msg] (send pid self msg))))]
+  (send echo self "hello world"))
+
+(receive [pid msg] msg)

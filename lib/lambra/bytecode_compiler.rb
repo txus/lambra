@@ -3,8 +3,8 @@ module Lambra
     attr_reader :generator
     alias g generator
 
-    SPECIAL_FORMS = %w(def fn let spawn)
-    PRIMITIVE_FORMS = %w(println + - / * send sleep)
+    SPECIAL_FORMS = %w(def fn let spawn receive)
+    PRIMITIVE_FORMS = %w(println + - / * send sleep self)
 
     def initialize(generator=nil)
       @generator = generator || RBX::Generator.new
@@ -40,11 +40,22 @@ module Lambra
     end
 
     def visit_EvalExpression(o)
+      register_main_process
       o.body.accept(self)
     end
+    alias_method :visit_Script, :visit_EvalExpression
 
-    def visit_Script(o)
-      o.body.accept(self)
+    def register_main_process
+      g.push_cpath_top
+      g.find_const :Lambra
+      g.find_const :Process
+
+      g.push_cpath_top
+      g.find_const :Lambra
+      g.find_const :Process
+      g.send :new, 0
+
+      g.send :register, 1
     end
 
     def visit_List(o)
@@ -79,13 +90,15 @@ module Lambra
       when 'fn'
         args_vector = cdr.shift
         arguments = Lambra::AST::ClosureArguments.new(args_vector.line, args_vector.column, args_vector)
-        closure = Lambra::AST::Closure.new(arguments.line, arguments.column, arguments, cdr.shift)
+        body = cdr.size > 1 ? Lambra::AST::Sequence.new(cdr.first.line, cdr.first.column, cdr) : cdr.shift
+        closure = Lambra::AST::Closure.new(arguments.line, arguments.column, arguments, body)
 
         closure.accept(self)
       when 'let'
         args_vector = cdr.shift
         arguments = Lambra::AST::LetArguments.new(args_vector.line, args_vector.column, args_vector)
-        closure = Lambra::AST::Closure.new(arguments.line, arguments.column, arguments, cdr.shift)
+        body = cdr.size > 1 ? Lambra::AST::Sequence.new(cdr.first.line, cdr.first.column, cdr) : cdr.shift
+        closure = Lambra::AST::Closure.new(arguments.line, arguments.column, arguments, body)
 
         closure.accept(self)
 
@@ -103,6 +116,9 @@ module Lambra
         fn.accept(self)
 
         g.send_with_block :spawn, 0
+
+      when 'receive'
+        Lambra::AST::Receive.new(cdr).accept(self)
       end
     end
 
@@ -158,13 +174,23 @@ module Lambra
     end
 
     def visit_Symbol(o)
+      if o.name.to_sym == :self
+        return visit_Self(o)
+      end
+
       set_line(o)
+
       local = g.state.scope.search_local(o.name)
       if local
         local.get_bytecode(g)
       else
         raise "unbound symbol #{o.name}"
       end
+    end
+
+    def visit_Self(o)
+      g.push_process
+      g.send :pid, 0
     end
 
     def visit_Number(o)
@@ -208,8 +234,10 @@ module Lambra
     def visit_Sequence(o)
       set_line(o)
 
-      o.elements.compact.each do |element|
+      elems = o.elements.compact
+      elems.each_with_index do |element, idx|
         element.accept(self)
+        g.pop unless elems.count - 1 == idx
       end
     end
 
@@ -263,6 +291,28 @@ module Lambra
 
         i += 1
       end
+    end
+
+    def visit_Receive(o)
+      args_vector = o.pattern
+      arguments = Lambra::AST::ClosureArguments.new(args_vector.line, args_vector.column, args_vector)
+      cdr = o.actions
+      body = cdr.size > 1 ? Lambra::AST::Sequence.new(cdr.first.line, cdr.first.column, cdr) : cdr.shift
+      closure = Lambra::AST::Closure.new(arguments.line, arguments.column, arguments, body)
+
+      closure.accept(self)
+
+      g.push_process
+      g.send :pop, 0
+      g.send :contents, 0
+
+      arguments.arguments.each do |value|
+        g.shift_array
+        g.swap_stack
+      end
+      g.pop
+
+      g.send :call, arguments.count
     end
 
     def finalize

@@ -137,6 +137,14 @@ module Lambra
         @arguments.count
       end
     end
+
+    class Receive < Node
+      attr_reader :pattern, :actions
+
+      def initialize(clauses)
+        @pattern, *@actions = clauses
+      end
+    end
   end
 end
 

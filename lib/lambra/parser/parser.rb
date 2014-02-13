@@ -13,8 +13,7 @@ class Lambra::Parser
     # Prepares for parsing +str+.  If you define a custom initialize you must
     # call this method before #parse
     def setup_parser(str, debug=false)
-      @string = str
-      @pos = 0
+      set_string str, 0
       @memoizations = Hash.new { |h,k| h[k] = {} }
       @result = nil
       @failed_rule = nil
@@ -27,7 +26,6 @@ class Lambra::Parser
     attr_reader :failing_rule_offset
     attr_accessor :result, :pos
 
-    
     def current_column(target=pos)
       if c = string.rindex("\n", target-1)
         return target - c - 1
@@ -59,6 +57,13 @@ class Lambra::Parser
 
     def get_text(start)
       @string[start..@pos-1]
+    end
+
+    # Sets the string and current parsing position for the parser.
+    def set_string string, pos
+      @string = string
+      @string_size = string ? string.size : 0
+      @pos = pos
     end
 
     def show_pos
@@ -167,19 +172,19 @@ class Lambra::Parser
       return nil
     end
 
-    if "".respond_to? :getbyte
+    if "".respond_to? :ord
       def get_byte
-        if @pos >= @string.size
+        if @pos >= @string_size
           return nil
         end
 
-        s = @string.getbyte @pos
+        s = @string[@pos].ord
         @pos += 1
         s
       end
     else
       def get_byte
-        if @pos >= @string.size
+        if @pos >= @string_size
           return nil
         end
 
@@ -228,8 +233,7 @@ class Lambra::Parser
       old_pos = @pos
       old_string = @string
 
-      @pos = other.pos
-      @string = other.string
+      set_string other.string, other.pos
 
       begin
         if val = __send__(rule, *args)
@@ -240,8 +244,7 @@ class Lambra::Parser
         end
         val
       ensure
-        @pos = old_pos
-        @string = old_string
+        set_string old_string, old_pos
       end
     end
 
@@ -483,45 +486,48 @@ class Lambra::Parser
       attr_reader :elements
     end
   end
-  def char_value(line, column, value)
-    ::Lambra::AST::Character.new(line, column, value)
+  module ::Lambra::ASTConstruction
+    def char_value(line, column, value)
+      ::Lambra::AST::Character.new(line, column, value)
+    end
+    def false_value(line, column)
+      ::Lambra::AST::False.new(line, column)
+    end
+    def keyword(line, column, name)
+      ::Lambra::AST::Keyword.new(line, column, name)
+    end
+    def list(line, column, elements)
+      ::Lambra::AST::List.new(line, column, elements)
+    end
+    def map(line, column, elements)
+      ::Lambra::AST::Map.new(line, column, elements)
+    end
+    def nil_value(line, column)
+      ::Lambra::AST::Nil.new(line, column)
+    end
+    def number(line, column, value)
+      ::Lambra::AST::Number.new(line, column, value)
+    end
+    def seq(line, column, elements)
+      ::Lambra::AST::Sequence.new(line, column, elements)
+    end
+    def set(line, column, elements)
+      ::Lambra::AST::Set.new(line, column, elements)
+    end
+    def string_value(line, column, value)
+      ::Lambra::AST::String.new(line, column, value)
+    end
+    def symbol(line, column, name)
+      ::Lambra::AST::Symbol.new(line, column, name)
+    end
+    def true_value(line, column)
+      ::Lambra::AST::True.new(line, column)
+    end
+    def vector(line, column, elements)
+      ::Lambra::AST::Vector.new(line, column, elements)
+    end
   end
-  def false_value(line, column)
-    ::Lambra::AST::False.new(line, column)
-  end
-  def keyword(line, column, name)
-    ::Lambra::AST::Keyword.new(line, column, name)
-  end
-  def list(line, column, elements)
-    ::Lambra::AST::List.new(line, column, elements)
-  end
-  def map(line, column, elements)
-    ::Lambra::AST::Map.new(line, column, elements)
-  end
-  def nil_value(line, column)
-    ::Lambra::AST::Nil.new(line, column)
-  end
-  def number(line, column, value)
-    ::Lambra::AST::Number.new(line, column, value)
-  end
-  def seq(line, column, elements)
-    ::Lambra::AST::Sequence.new(line, column, elements)
-  end
-  def set(line, column, elements)
-    ::Lambra::AST::Set.new(line, column, elements)
-  end
-  def string_value(line, column, value)
-    ::Lambra::AST::String.new(line, column, value)
-  end
-  def symbol(line, column, name)
-    ::Lambra::AST::Symbol.new(line, column, name)
-  end
-  def true_value(line, column)
-    ::Lambra::AST::True.new(line, column)
-  end
-  def vector(line, column, elements)
-    ::Lambra::AST::Vector.new(line, column, elements)
-  end
+  include ::Lambra::ASTConstruction
   def setup_foreign_grammar; end
 
   # eof = !.
@@ -1399,7 +1405,7 @@ class Lambra::Parser
     return _tmp
   end
 
-  # many_expr = (comment:e many_expr:m { [e] + m } | expr:e br-sp many_expr:m { [e] + m } | expr:e { [e] })
+  # many_expr = (comment:e many_expr:m { [e] + m } | expr:e br-sp many_expr:m { [e] + m } | br-sp many_expr:m br-sp { m } | expr:e { [e] })
   def _many_expr
 
     _save = self.pos
@@ -1462,16 +1468,45 @@ class Lambra::Parser
 
       _save3 = self.pos
       while true # sequence
+        _tmp = apply(:_br_hyphen_sp)
+        unless _tmp
+          self.pos = _save3
+          break
+        end
+        _tmp = apply(:_many_expr)
+        m = @result
+        unless _tmp
+          self.pos = _save3
+          break
+        end
+        _tmp = apply(:_br_hyphen_sp)
+        unless _tmp
+          self.pos = _save3
+          break
+        end
+        @result = begin;  m ; end
+        _tmp = true
+        unless _tmp
+          self.pos = _save3
+        end
+        break
+      end # end sequence
+
+      break if _tmp
+      self.pos = _save
+
+      _save4 = self.pos
+      while true # sequence
         _tmp = apply(:_expr)
         e = @result
         unless _tmp
-          self.pos = _save3
+          self.pos = _save4
           break
         end
         @result = begin;  [e] ; end
         _tmp = true
         unless _tmp
-          self.pos = _save3
+          self.pos = _save4
         end
         break
       end # end sequence
@@ -1660,7 +1695,7 @@ class Lambra::Parser
   Rules[:_set] = rule_info("set", "(\"\#{\" expr_list:e \"}\" {set(current_line, current_column, e)} | \"\#{\" \"}\" {set(current_line, current_column, [])})")
   Rules[:_map] = rule_info("map", "(\"{\" expr_list:e \"}\" {map(current_line, current_column, Hash[*e])} | \"{\" \"}\" {map(current_line, current_column, {})})")
   Rules[:_expr] = rule_info("expr", "(list | literal)")
-  Rules[:_many_expr] = rule_info("many_expr", "(comment:e many_expr:m { [e] + m } | expr:e br-sp many_expr:m { [e] + m } | expr:e { [e] })")
+  Rules[:_many_expr] = rule_info("many_expr", "(comment:e many_expr:m { [e] + m } | expr:e br-sp many_expr:m { [e] + m } | br-sp many_expr:m br-sp { m } | expr:e { [e] })")
   Rules[:_sequence] = rule_info("sequence", "many_expr:e { e.size > 1 ? seq(current_line, current_column, e) : e.first }")
   Rules[:_expr_list_b] = rule_info("expr_list_b", "(expr:e br-sp expr_list_b:l { [e] + l } | expr:e { [e] })")
   Rules[:_expr_list] = rule_info("expr_list", "br-sp expr_list_b:b br-sp { b }")

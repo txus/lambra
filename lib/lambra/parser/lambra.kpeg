@@ -23,7 +23,7 @@ space = " " | "\t"
 nl = "\n"
 
 sp = space+
-- = space* 
+- = space*
 
 comment = ";" (!nl .)* nl
 
@@ -87,7 +87,8 @@ expr = list
 
 many_expr = comment:e many_expr:m { [e] + m }
           | expr:e br-sp many_expr:m { [e] + m }
-          | expr:e { [e] } 
+          | br-sp many_expr:m br-sp { m }
+          | expr:e { [e] }
 
 sequence = many_expr:e { e.size > 1 ? seq(current_line, current_column, e) : e.first }
 

@@ -70,14 +70,15 @@ module Lambra
 
       def initialize(*)
         super
+      ensure
+        @processor = Lambra::Generator
       end
 
       def run
         @output = @processor.new
         @input.variable_scope = @variable_scope
-        b = Lambra::BytecodeCompiler.new(@output)
-        b.compile(@input)
-        # @input.bytecode @output
+        c = Lambra::BytecodeCompiler.new(@output)
+        c.compile(@input)
         @output.close
         run_next
       end

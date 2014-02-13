@@ -57,7 +57,7 @@ Primitives = PrimitiveScope.new({
   :-       => PrimitiveFunction.new { |*args| args.inject(:-) },
   :/       => PrimitiveFunction.new { |a, b| a / b },
   :*       => PrimitiveFunction.new { |a, b| a * b },
-  :send    => PrimitiveFunction.new { |pid, *args| Process[pid].push(*args) },
+  :send    => PrimitiveFunction.new { |pid, *args| Lambra::Process[pid].push(*args) },
   :sleep   => PrimitiveFunction.new { |seconds| sleep(seconds); nil }
 })
 

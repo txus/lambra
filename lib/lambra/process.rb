@@ -2,6 +2,7 @@ require 'thread'
 
 module Lambra
   class Message
+    attr_reader :contents
     def initialize(*args)
       @contents = args
     end
@@ -27,13 +28,32 @@ module Lambra
     end
 
     def self.spawn(&fn)
-      Thread.new {
-        new(&fn).tap { |process|
-          pid = Thread.current.object_id
-          self[pid] = process
-          Thread.current[:process] = process
-        }.call
+      x = Thread.new {
+        begin
+          process = new(&fn)
+          register(process)
+          process.call
+        ensure
+          unregister(process)
+        end
       }.object_id
+      sleep 0.01 # FIXME
+      x
+    end
+
+    def self.current
+      self[Thread.current.object_id]
+    end
+
+    def self.register(process)
+      pid = Thread.current.object_id
+      self[pid] = process
+      Thread.current[:process] = process
+    end
+
+    def self.unregister(process)
+      @processes.delete(Thread.current.object_id)
+      Thread.current.delete(:process)
     end
 
     def initialize(&fn)
@@ -43,6 +63,10 @@ module Lambra
 
     def call
       @fn.call
+    end
+
+    def pid
+      Thread.current.object_id
     end
 
     def push(*args)
