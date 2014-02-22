@@ -325,7 +325,10 @@ module Lambra
       o.patterns.each do |pattern|
         failure = g.new_label
         g.dup_top
-        pattern.accept(self, success, failure)
+
+        pattern.match(self, failure)
+        pattern.execute(self, success)
+
         failure.set!
       end
 
@@ -339,39 +342,6 @@ module Lambra
 
       success.set!
       done.set!
-    end
-
-    def visit_ValuePattern(o, success, failure)
-      o.value.accept(self)
-      g.swap_stack
-      g.send :==, 1
-      g.gif failure
-
-      # Pattern match succeeded!
-      o.actions.each_with_index do |action, idx|
-        action.accept(self)
-        g.pop unless o.actions.count - 1 == idx
-      end
-      g.goto success
-    end
-
-    def visit_SymbolPattern(o, success, _)
-      unbound = o.value.name == :_
-
-      args_vector = Lambra::AST::Vector.new(o.value.line, o.value.column, unbound ? [] : [o.value])
-      arguments = Lambra::AST::ClosureArguments.new(args_vector.line, args_vector.column, args_vector)
-      body = o.actions.size > 1 ? Lambra::AST::Sequence.new(o.actions.first.line, o.actions.first.column, o.actions[1..-1]) : o.actions.first
-      closure = Lambra::AST::Closure.new(arguments.line, arguments.column, arguments, body)
-
-      closure.accept(self)
-      g.swap_stack
-      if unbound
-        g.pop
-        g.send :call, 0
-      else
-        g.send :call, 1
-      end
-      g.goto success
     end
 
     def finalize

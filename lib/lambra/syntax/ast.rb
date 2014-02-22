@@ -157,6 +157,8 @@ module Lambra
             ValuePattern.new(car, cdr)
           when Symbol
             SymbolPattern.new(car, cdr)
+          when Vector
+            VectorPattern.new(car, cdr)
           else
             raise "Can't generate pattern from #{car.inspect}"
           end
@@ -168,12 +170,72 @@ module Lambra
           @value = value
           @actions = actions
         end
+
+        def bound
+          []
+        end
+
+        def execute(compiler, success, g=compiler.g)
+          if bound.empty?
+            actions.each_with_index do |action, idx|
+              action.accept(compiler)
+              g.pop unless actions.count - 1 == idx
+            end
+          else
+            execution_closure.accept(compiler)
+            g.swap_stack
+            g.send :call, bound.size
+          end
+          g.goto success
+        end
+
+        private
+
+        def execution_closure
+          args_vector = Vector.new(value.line, value.column, bound)
+          arguments = ClosureArguments.new(args_vector.line, args_vector.column, args_vector)
+          body = actions.size > 1 ? Sequence.new(actions.first.line, actions.first.column, actions[1..-1]) : actions.first
+          Closure.new(arguments.line, arguments.column, arguments, body)
+        end
       end
 
       class ValuePattern < Pattern
+        def match(compiler, failure, g=compiler.g)
+          value.accept(compiler)
+          g.swap_stack
+          g.send :==, 1
+          g.gif failure
+        end
       end
 
       class SymbolPattern < Pattern
+        def match(compiler, failure)
+          # always matches
+        end
+
+        def bound
+          value.name == :_ ? [] : [self.value]
+        end
+      end
+
+      class VectorPattern < Pattern
+        def match(compiler, failure, g=compiler.g)
+          match_length(g, failure)
+        end
+
+        def execute(compiler, success, g=compiler.g)
+          g.push 3
+          g.goto success
+        end
+
+        private
+
+        def match_length(g, failure)
+          g.send :length, 0
+          g.push value.elements.length
+          g.send :==, 1
+          g.gif failure
+        end
       end
 
       attr_reader :expression, :patterns
