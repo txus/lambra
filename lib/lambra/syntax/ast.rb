@@ -3,9 +3,9 @@ require_relative 'scope'
 module Lambra
   module AST
     module Visitable
-      def accept(visitor)
+      def accept(visitor, *args)
         name = self.class.name.split("::").last
-        visitor.send "visit_#{name}", self
+        visitor.send "visit_#{name}", self, *args
       end
     end
 
@@ -143,6 +143,44 @@ module Lambra
 
       def initialize(clauses)
         @pattern, *@actions = clauses
+      end
+    end
+
+    class Match < Node
+      class Pattern < Node
+        include Scope
+
+        def self.from(list)
+          car, *cdr = list.elements
+          case car
+          when Number, String, Character, Keyword
+            ValuePattern.new(car, cdr)
+          when Symbol
+            SymbolPattern.new(car, cdr)
+          else
+            raise "Can't generate pattern from #{car.inspect}"
+          end
+        end
+
+        attr_reader :value, :actions
+
+        def initialize(value, actions)
+          @value = value
+          @actions = actions
+        end
+      end
+
+      class ValuePattern < Pattern
+      end
+
+      class SymbolPattern < Pattern
+      end
+
+      attr_reader :expression, :patterns
+
+      def initialize((expression, *patterns))
+        @expression = expression
+        @patterns = patterns.map { |list| Pattern.from(list) }
       end
     end
   end

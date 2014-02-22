@@ -44,6 +44,39 @@ describe "Environment bootstrap" do
     end
   end
 
+  describe 'match' do
+    it 'can match literal values' do
+      %q{
+      (match 42
+        (42 "foo"))
+      }.should eval_to "foo"
+    end
+
+    it 'can have a bound catch all pattern' do
+      %q{
+      (match 42
+        (99 99)
+        (x (+ x 3)))
+      }.should eval_to 45
+    end
+
+    it 'can have an unbound catch all pattern' do
+      %q{
+      (match 42
+        (_ 99))
+      }.should eval_to 99
+    end
+
+    it 'can fail the pattern match' do
+      proc {
+        Lambra::Compiler.eval %q{
+          (match 42
+            (99 99))
+        }
+      }.should raise_error ArgumentError
+    end
+  end
+
   describe 'receive' do
     it 'blocks until a new message arrives' do
       %Q{

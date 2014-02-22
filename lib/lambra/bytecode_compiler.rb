@@ -3,7 +3,7 @@ module Lambra
     attr_reader :generator
     alias g generator
 
-    SPECIAL_FORMS = %w(def fn let spawn receive)
+    SPECIAL_FORMS = %w(def fn let spawn receive match)
     PRIMITIVE_FORMS = %w(println + - / * send sleep self)
 
     def initialize(generator=nil)
@@ -119,6 +119,8 @@ module Lambra
 
       when 'receive'
         Lambra::AST::Receive.new(cdr).accept(self)
+      when 'match'
+        Lambra::AST::Match.new(cdr).accept(self)
       end
     end
 
@@ -313,6 +315,63 @@ module Lambra
       g.pop
 
       g.send :call, arguments.count
+    end
+
+    def visit_Match(o)
+      o.expression.accept(self)
+      success = g.new_label
+      done = g.new_label
+
+      o.patterns.each do |pattern|
+        failure = g.new_label
+        g.dup_top
+        pattern.accept(self, success, failure)
+        failure.set!
+      end
+
+      g.push_self
+      g.push_cpath_top
+      g.find_const :ArgumentError
+      g.push_literal "Pattern match failed"
+      g.send :new, 1
+      g.send :raise, 1, true
+      g.goto done
+
+      success.set!
+      done.set!
+    end
+
+    def visit_ValuePattern(o, success, failure)
+      o.value.accept(self)
+      g.swap_stack
+      g.send :==, 1
+      g.gif failure
+
+      # Pattern match succeeded!
+      o.actions.each_with_index do |action, idx|
+        action.accept(self)
+        g.pop unless o.actions.count - 1 == idx
+      end
+      g.goto success
+    end
+
+    def visit_SymbolPattern(o, success, _)
+      unbound = o.value.name == :_
+
+      args_vector = Lambra::AST::Vector.new(o.value.line, o.value.column, unbound ? [] : [o.value])
+      arguments = Lambra::AST::ClosureArguments.new(args_vector.line, args_vector.column, args_vector)
+      body = o.actions.size > 1 ? Lambra::AST::Sequence.new(o.actions.first.line, o.actions.first.column, o.actions[1..-1]) : o.actions.first
+      closure = Lambra::AST::Closure.new(arguments.line, arguments.column, arguments, body)
+
+      closure.accept(self)
+      g.swap_stack
+      if unbound
+        g.pop
+        g.send :call, 0
+      else
+        g.send :call, 1
+      end
+      g.goto success
     end
 
     def finalize
