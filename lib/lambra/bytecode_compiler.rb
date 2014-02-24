@@ -322,22 +322,21 @@ module Lambra
       success = g.new_label
       done = g.new_label
 
-      o.patterns.each do |pattern|
+      o.patterns.each_with_index do |pattern, idx|
         failure = g.new_label
         g.dup_top
 
-        pattern.match(self, failure)
+        pattern.match(self, failure) # consumes 1 stack
         pattern.execute(self, success)
 
         failure.set!
       end
 
-      g.push_self
       g.push_cpath_top
       g.find_const :ArgumentError
       g.push_literal "Pattern match failed"
       g.send :new, 1
-      g.send :raise, 1, true
+      g.raise_exc
       g.goto done
 
       success.set!

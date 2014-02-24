@@ -166,7 +166,7 @@ module Lambra
 
         attr_reader :value, :actions
 
-        def initialize(value, actions)
+        def initialize(value, actions=[])
           @value = value
           @actions = actions
         end
@@ -176,16 +176,11 @@ module Lambra
         end
 
         def execute(compiler, success, g=compiler.g)
-          if bound.empty?
-            actions.each_with_index do |action, idx|
-              action.accept(compiler)
-              g.pop unless actions.count - 1 == idx
-            end
-          else
-            execution_closure.accept(compiler)
+          execution_closure.accept(compiler)
+          if bound.any?
             g.swap_stack
-            g.send :call, bound.size
           end
+          g.send :call, bound.size
           g.goto success
         end
 
@@ -209,8 +204,9 @@ module Lambra
       end
 
       class SymbolPattern < Pattern
-        def match(compiler, failure)
+        def match(compiler, failure, g=compiler.g)
           # always matches
+          g.pop
         end
 
         def bound
@@ -221,6 +217,11 @@ module Lambra
       class VectorPattern < Pattern
         def match(compiler, failure, g=compiler.g)
           match_length(g, failure)
+
+          subpatterns.each_with_index do |pattern, idx|
+            g.shift_array
+            pattern.match(compiler, failure)
+          end
         end
 
         def execute(compiler, success, g=compiler.g)
@@ -228,7 +229,18 @@ module Lambra
           g.goto success
         end
 
+        def bound
+          subpatterns.map(&:bound).uniq
+        end
+
         private
+
+        def subpatterns
+          @subpatterns ||= value.elements.map { |x|
+            l = List.new(value.line, value.column, x)
+            Pattern.from(l)
+          }
+        end
 
         def match_length(g, failure)
           g.send :length, 0
