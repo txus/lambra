@@ -190,6 +190,8 @@ module Lambra
     def visit_Symbol(o)
       if o.name.to_sym == :self
         return visit_Self(o)
+      elsif o.name =~ /^[A-Z]/
+        return visit_Constant(o)
       end
 
       set_line(o)
@@ -205,6 +207,13 @@ module Lambra
     def visit_Self(o)
       g.push_process
       g.send :pid, 0
+    end
+
+    def visit_Constant(o)
+      g.push_cpath_top
+      o.name.to_s.split('.').each do |part|
+        g.find_const(part.to_sym)
+      end
     end
 
     def visit_Number(o)

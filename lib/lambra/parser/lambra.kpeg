@@ -39,7 +39,7 @@ true  = "true" ~true_value(current_line, current_column)
 false = "false" ~false_value(current_line, current_column)
 nil   = "nil" ~nil_value(current_line, current_column)
 
-word = < /\.?[a-zA-Z0-9_\-\*\+\-\/]+/ > { text }
+word = < /[A-Z\.]?[a-zA-Z0-9_\.\-\*\+\-\/]+/ > { text }
 symbol = word:w ~symbol(current_line, current_column, w.to_sym)
 keyword = ":" word:w ~keyword(current_line, current_column, w.to_sym)
 

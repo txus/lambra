@@ -93,5 +93,13 @@ describe "Environment bootstrap" do
     it 'works with methods' do
       "(.succ 3)".should eval_to 4
     end
+
+    it 'works with simple constants' do
+      "Set".should eval_to Set
+    end
+
+    it 'works with qualified constants' do
+      "Lambra.Parser".should eval_to Lambra::Parser
+    end
   end
 end
