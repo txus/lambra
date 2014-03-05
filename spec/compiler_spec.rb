@@ -88,4 +88,10 @@ describe "Environment bootstrap" do
       }.should eval_to "hello world"
     end
   end
+
+  describe 'interop' do
+    it 'works with methods' do
+      "(.succ 3)".should eval_to 4
+    end
+  end
 end

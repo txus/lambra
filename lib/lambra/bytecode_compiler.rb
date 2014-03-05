@@ -66,6 +66,7 @@ module Lambra
 
       return visit_SpecialForm(car.name, cdr) if car.respond_to?(:name) && special_form?(car.name)
       return visit_PrimitiveForm(car.name, cdr) if car.respond_to?(:name) && primitive_form?(car.name)
+      return visit_InteropForm(car.name, cdr) if car.respond_to?(:name) && interop_form?(car.name)
 
       args = cdr.count
 
@@ -76,6 +77,17 @@ module Lambra
       end
 
       g.send :call, args
+    end
+
+    def visit_InteropForm(car, cdr)
+      method = car[1..-1].to_sym
+      receiver = cdr.shift
+      receiver.accept(self)
+      cdr.each do |argument|
+        argument.accept(self)
+      end
+
+      g.send method, cdr.count, false
     end
 
     def visit_SpecialForm(car, cdr)
@@ -374,6 +386,10 @@ module Lambra
 
     def primitive_form?(name)
       PRIMITIVE_FORMS.include?(name.to_s)
+    end
+
+    def interop_form?(name)
+      !!(name =~ /^./)
     end
 
     def new_block_generator(g, arguments)
