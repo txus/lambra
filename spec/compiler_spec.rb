@@ -67,13 +67,6 @@ describe "Environment bootstrap" do
       }.should eval_to 99
     end
 
-    it 'destructures simple vectors' do
-      %q{
-      (match [1 2 3]
-        ([_ 2 x] x))
-      }.should eval_to 3
-    end
-
     it 'can fail the pattern match' do
       proc {
         Lambra::Compiler.eval %q{

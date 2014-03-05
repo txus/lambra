@@ -206,7 +206,7 @@ module Lambra
       class SymbolPattern < Pattern
         def match(compiler, failure, g=compiler.g)
           # always matches
-          g.pop
+          # g.pop
         end
 
         def bound
