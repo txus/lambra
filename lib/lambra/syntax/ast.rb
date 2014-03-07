@@ -116,6 +116,7 @@ module Lambra
         @line = line
         @column = column
         @arguments = vector.elements
+        puts @arguments.inspect
       end
 
       def count
@@ -147,8 +148,9 @@ module Lambra
     end
 
     class Match < Node
+      include Scope
+
       class Pattern < Node
-        include Scope
 
         def self.from(list)
           car, *cdr = list.elements
@@ -171,26 +173,11 @@ module Lambra
           @actions = actions
         end
 
-        def bound
-          []
-        end
-
         def execute(compiler, success, g=compiler.g)
-          execution_closure.accept(compiler)
-          if bound.any?
-            g.swap_stack
+          actions.each do |action|
+            action.accept(compiler)
           end
-          g.send :call, bound.size
           g.goto success
-        end
-
-        private
-
-        def execution_closure
-          args_vector = Vector.new(value.line, value.column, bound)
-          arguments = ClosureArguments.new(args_vector.line, args_vector.column, args_vector)
-          body = actions.size > 1 ? Sequence.new(actions.first.line, actions.first.column, actions[1..-1]) : actions.first
-          Closure.new(arguments.line, arguments.column, arguments, body)
         end
       end
 
@@ -206,31 +193,27 @@ module Lambra
       class SymbolPattern < Pattern
         def match(compiler, failure, g=compiler.g)
           # always matches
-          # g.pop
-        end
-
-        def bound
-          value.name == :_ ? [] : [self.value]
+          unless value.name == :_
+            local = g.state.scope.new_local(value.name)
+            local.reference.set_bytecode(g)
+          end
+          g.pop
         end
       end
 
       class VectorPattern < Pattern
         def match(compiler, failure, g=compiler.g)
+          # l = g.state.scope.search_local(:__value__)
+          # l.get_bytecode(g)
+          # g.inspect
+          # g.pop
+
           match_length(g, failure)
 
           subpatterns.each_with_index do |pattern, idx|
             g.shift_array
             pattern.match(compiler, failure)
           end
-        end
-
-        def execute(compiler, success, g=compiler.g)
-          g.push 3
-          g.goto success
-        end
-
-        def bound
-          subpatterns.map(&:bound).uniq
         end
 
         private
@@ -252,8 +235,9 @@ module Lambra
 
       attr_reader :expression, :patterns
 
-      def initialize((expression, *patterns))
-        @expression = expression
+      def initialize(line, column, patterns)
+        @line = line
+        @column = column
         @patterns = patterns.map { |list| Pattern.from(list) }
       end
     end

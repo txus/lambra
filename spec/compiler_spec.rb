@@ -24,6 +24,10 @@ describe "Environment bootstrap" do
     it 'works with proper closure scope' do
       '(def y 2) ((fn [x] (* y x)) 3)'.should eval_to 6
     end
+
+    it 'accepts a vector as a single argument' do
+      '((fn [x] x) [1 2 3])'.should eval_to [1, 2, 3]
+    end
   end
 
   describe 'let' do
@@ -65,6 +69,13 @@ describe "Environment bootstrap" do
       (match 42
         (_ 99))
       }.should eval_to 99
+    end
+
+    it 'can destructure a simple vector' do
+      %q{
+      (match [1 2 3]
+        ([_ 2 x] x))
+      }.should eval_to 3
     end
 
     it 'can fail the pattern match' do

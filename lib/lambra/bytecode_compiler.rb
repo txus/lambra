@@ -98,7 +98,7 @@ module Lambra
         cdr.first.accept(self)
 
         local = g.state.scope.new_local(name)
-        g.set_local local.slot
+        local.reference.set_bytecode(g)
       when 'fn'
         args_vector = cdr.shift
         arguments = Lambra::AST::ClosureArguments.new(args_vector.line, args_vector.column, args_vector)
@@ -132,7 +132,16 @@ module Lambra
       when 'receive'
         Lambra::AST::Receive.new(cdr).accept(self)
       when 'match'
-        Lambra::AST::Match.new(cdr).accept(self)
+        value = cdr.shift
+        args_vector = Lambra::AST::Vector.new(value.line, value.column, [Lambra::AST::Symbol.new(value.line, value.column, :__value__)])
+        arguments = Lambra::AST::ClosureArguments.new(value.line, value.column, args_vector)
+        body = Lambra::AST::Match.new(value.line, value.column, cdr)
+        closure = Lambra::AST::Closure.new(arguments.line, arguments.column, arguments, body)
+
+        closure.accept(self)
+        value.accept(self)
+        # g.inspect
+        g.send :call, 1
       end
     end
 
@@ -163,7 +172,9 @@ module Lambra
 
     def visit_ClosureArguments(o)
       args = o.arguments
+
       args.each_with_index do |a, i|
+        # TIXME
         g.shift_array
         local = g.state.scope.new_local(a.name)
         g.set_local local.slot
@@ -339,7 +350,9 @@ module Lambra
     end
 
     def visit_Match(o)
-      o.expression.accept(self)
+      local = g.state.scope.search_local(:__value__)
+      local.get_bytecode(g)
+
       success = g.new_label
       done = g.new_label
 
@@ -347,7 +360,7 @@ module Lambra
         failure = g.new_label
         g.dup_top
 
-        pattern.match(self, failure) # consumes 1 stack
+        pattern.match(self, failure)
         pattern.execute(self, success)
 
         failure.set!
